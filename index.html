@@ -6,413 +6,142 @@
 <meta name="theme-color" content="#0F6E56">
 <meta name="description" content="Gestión de turnos — Residencia Santa Llúcia, Dénia">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Turno Concilia">
 <title>Turno Concilia</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  :root {
-    --teal:       #1D9E75;
-    --teal-dark:  #0F6E56;
-    --teal-light: #E1F5EE;
-    --amber:      #BA7517;
-    --amber-light:#FAEEDA;
-    --purple:     #534AB7;
-    --purple-light:#EEEDFE;
-    --green:      #3B6D11;
-    --green-light:#EAF3DE;
-    --pink:       #993556;
-    --pink-light: #FBEAF0;
-    --red:        #A32D2D;
-    --red-light:  #FCEBEB;
-    --blue:       #185FA5;
-    --blue-light: #E6F1FB;
-    --gray:       #5F5E5A;
-    --gray-light: #F1EFE8;
-    --bg:         #F5F5F3;
-    --white:      #FFFFFF;
-    --border:     rgba(0,0,0,0.1);
-    --text:       #2C2C2A;
-    --text-muted: #888780;
-    --radius:     10px;
-    --radius-sm:  6px;
-  }
+:root{
+  --teal:#1D9E75;--teal-dark:#0F6E56;--teal-light:#E1F5EE;
+  --amber:#BA7517;--amber-light:#FAEEDA;
+  --purple:#534AB7;--purple-light:#EEEDFE;
+  --green:#3B6D11;--green-light:#EAF3DE;
+  --pink:#993556;--pink-light:#FBEAF0;
+  --red:#A32D2D;--red-light:#FCEBEB;
+  --blue:#185FA5;--blue-light:#E6F1FB;
+  --gray:#5F5E5A;--gray-light:#F1EFE8;
+  --bg:#F5F5F3;--white:#FFFFFF;
+  --border:rgba(0,0,0,0.1);--text:#2C2C2A;--text-muted:#888780;
+  --radius:10px;--radius-sm:6px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:14px;min-height:100vh;padding-bottom:70px}
 
-  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+/* TOPBAR */
+.topbar{background:var(--teal-dark);color:white;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.topbar-title{font-size:16px;font-weight:600}
+.topbar-sub{font-size:11px;opacity:.8;margin-top:1px}
+.topbar-user{font-size:12px;opacity:.9}
+.btn-logout{background:rgba(255,255,255,.15);border:none;color:white;padding:4px 10px;border-radius:20px;font-size:11px;cursor:pointer}
 
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    font-size: 14px;
-    min-height: 100vh;
-    padding-bottom: 70px;
-  }
+/* BOTTOM NAV */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:0.5px solid var(--border);display:flex;z-index:100;padding-bottom:env(safe-area-inset-bottom)}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;padding:8px 4px;font-size:10px;color:var(--text-muted);cursor:pointer;border:none;background:none;gap:3px;transition:color .15s}
+.nav-item.active{color:var(--teal-dark)}
+.nav-item svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 
-  /* TOPBAR */
-  .topbar {
-    background: var(--teal-dark);
-    color: white;
-    padding: 12px 16px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-  }
-  .topbar-left { display: flex; flex-direction: column; }
-  .topbar-title { font-size: 16px; font-weight: 600; letter-spacing: .2px; }
-  .topbar-sub { font-size: 11px; opacity: .8; margin-top: 1px; }
-  .topbar-right { display: flex; align-items: center; gap: 12px; }
-  .topbar-user { font-size: 12px; opacity: .9; }
-  .btn-logout {
-    background: rgba(255,255,255,.15);
-    border: none;
-    color: white;
-    padding: 4px 10px;
-    border-radius: 20px;
-    font-size: 11px;
-    cursor: pointer;
-  }
+/* PAGES */
+.page{display:none;padding:16px}
+.page.active{display:block}
 
-  /* BOTTOM NAV */
-  .bottom-nav {
-    position: fixed;
-    bottom: 0; left: 0; right: 0;
-    background: var(--white);
-    border-top: 0.5px solid var(--border);
-    display: flex;
-    z-index: 100;
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-  .nav-item {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 8px 4px;
-    font-size: 10px;
-    color: var(--text-muted);
-    cursor: pointer;
-    border: none;
-    background: none;
-    gap: 3px;
-    transition: color .15s;
-  }
-  .nav-item.active { color: var(--teal-dark); }
-  .nav-item svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+/* CARDS */
+.card{background:var(--white);border-radius:var(--radius);border:0.5px solid var(--border);padding:14px 16px;margin-bottom:12px}
+.card-title{font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.card-title svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2}
 
-  /* PAGES */
-  .page { display: none; padding: 16px; }
-  .page.active { display: block; }
+/* LOGIN */
+#page-login{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:32px 24px;background:var(--white)}
+.login-logo{width:64px;height:64px;background:var(--teal-dark);border-radius:16px;display:flex;align-items:center;justify-content:center;margin-bottom:20px}
+.login-logo svg{width:36px;height:36px;stroke:white;fill:none;stroke-width:1.8}
+.login-title{font-size:22px;font-weight:700;margin-bottom:4px}
+.login-sub{font-size:13px;color:var(--text-muted);margin-bottom:32px;text-align:center}
+.form-group{width:100%;max-width:360px;margin-bottom:14px}
+.form-label{font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:6px;display:block;text-transform:uppercase;letter-spacing:.4px}
+.form-input{width:100%;padding:11px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px;background:var(--bg);color:var(--text);outline:none;transition:border-color .15s}
+.form-input:focus{border-color:var(--teal)}
+.btn-primary{width:100%;max-width:360px;padding:12px;background:var(--teal-dark);color:white;border:none;border-radius:var(--radius-sm);font-size:15px;font-weight:600;cursor:pointer;margin-top:4px;transition:background .15s}
+.btn-primary:hover{background:var(--teal)}
+.login-error{color:var(--red);font-size:12px;margin-top:8px;text-align:center;max-width:360px}
+.login-demo{margin-top:20px;font-size:12px;color:var(--text-muted);text-align:center;max-width:360px}
+.demo-btn{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);font-size:12px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:8px;color:var(--text);margin-top:6px}
+.demo-badge{padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600}
 
-  /* CARDS */
-  .card {
-    background: var(--white);
-    border-radius: var(--radius);
-    border: 0.5px solid var(--border);
-    padding: 14px 16px;
-    margin-bottom: 12px;
-  }
-  .card-title {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: .5px;
-    margin-bottom: 12px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .card-title svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
+/* CUADRANTE */
+.mes-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.mes-nav button{width:32px;height:32px;border:0.5px solid var(--border);border-radius:var(--radius-sm);background:var(--white);cursor:pointer;display:flex;align-items:center;justify-content:center}
+.mes-nav button svg{width:16px;height:16px;stroke:var(--text);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.mes-titulo{font-size:15px;font-weight:600}
+.leyenda{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.leyenda-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-muted)}
+.leyenda-dot{width:10px;height:10px;border-radius:3px}
+.cuadrante-wrap{overflow-x:auto;border-radius:var(--radius);border:0.5px solid var(--border)}
+.cuadrante-tabla{border-collapse:collapse;font-size:11px;min-width:100%;background:var(--white)}
+.cuadrante-tabla th{background:var(--gray-light);padding:5px 4px;text-align:center;font-weight:600;border-right:0.5px solid var(--border);border-bottom:0.5px solid var(--border);white-space:nowrap;font-size:10px;color:var(--gray)}
+.cuadrante-tabla th.col-nombre{text-align:left;padding-left:10px;min-width:90px;position:sticky;left:0;z-index:2;background:var(--gray-light)}
+.cuadrante-tabla td{padding:3px 2px;text-align:center;border-right:0.5px solid var(--border);border-bottom:0.5px solid var(--border);min-width:30px}
+.cuadrante-tabla td.nombre-cel{text-align:left;padding-left:10px;font-weight:500;white-space:nowrap;font-size:11px;position:sticky;left:0;background:var(--white);z-index:1}
+.cuadrante-tabla tr:last-child td{border-bottom:none}
+.cuadrante-tabla tr.fila-propia td{background:#F0FBF7!important}
+.cuadrante-tabla tr.fila-propia td.nombre-cel{background:#E1F5EE!important}
+.turno-pill{display:inline-block;padding:2px 3px;border-radius:3px;font-size:9px;font-weight:600;min-width:24px;text-align:center}
+.t-M{background:var(--teal-light);color:var(--teal-dark)}
+.t-CD{background:var(--green-light);color:var(--green)}
+.t-T{background:var(--amber-light);color:var(--amber)}
+.t-TC{background:var(--pink-light);color:var(--pink)}
+.t-N{background:var(--purple-light);color:var(--purple)}
+.t-L{background:var(--gray-light);color:var(--gray)}
+.t-F{background:var(--gray-light);color:var(--gray)}
+.t-AP{background:var(--blue-light);color:var(--blue)}
+.t-P{background:var(--blue-light);color:var(--blue)}
+.t-HE{background:var(--red-light);color:var(--red)}
+.t-DH{background:var(--blue-light);color:var(--blue)}
+.t-IT{background:var(--red-light);color:var(--red)}
+.t-VAC{background:var(--green-light);color:var(--green)}
+.col-findes{background:#FAFAF8}
+.col-hoy{background:#FFF8E6!important}
 
-  /* LOGIN */
-  #page-login {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    padding: 32px 24px;
-    background: var(--white);
-  }
-  .login-logo {
-    width: 64px; height: 64px;
-    background: var(--teal-dark);
-    border-radius: 16px;
-    display: flex; align-items: center; justify-content: center;
-    margin-bottom: 20px;
-  }
-  .login-logo svg { width: 36px; height: 36px; stroke: white; fill: none; stroke-width: 1.8; }
-  .login-title { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
-  .login-sub { font-size: 13px; color: var(--text-muted); margin-bottom: 32px; text-align: center; }
-  .form-group { width: 100%; max-width: 360px; margin-bottom: 14px; }
-  .form-label { font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; display: block; text-transform: uppercase; letter-spacing: .4px; }
-  .form-input {
-    width: 100%;
-    padding: 11px 14px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    font-size: 14px;
-    background: var(--bg);
-    color: var(--text);
-    outline: none;
-    transition: border-color .15s;
-  }
-  .form-input:focus { border-color: var(--teal); }
-  .btn-primary {
-    width: 100%;
-    max-width: 360px;
-    padding: 12px;
-    background: var(--teal-dark);
-    color: white;
-    border: none;
-    border-radius: var(--radius-sm);
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
-    margin-top: 4px;
-    transition: background .15s;
-  }
-  .btn-primary:hover { background: var(--teal); }
-  .login-demo { margin-top: 20px; font-size: 12px; color: var(--text-muted); text-align: center; max-width: 360px; }
-  .demo-users { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; width: 100%; max-width: 360px; }
-  .demo-btn {
-    padding: 8px 12px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--bg);
-    font-size: 12px;
-    cursor: pointer;
-    text-align: left;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--text);
-  }
-  .demo-badge {
-    padding: 2px 7px;
-    border-radius: 20px;
-    font-size: 10px;
-    font-weight: 600;
-  }
+/* SM */
+.sm-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:7px 0;border-bottom:0.5px solid var(--border)}
+.sm-row:last-child{border-bottom:none}
+.sm-num{font-weight:600;font-size:14px}
+.estado-ok{color:var(--teal-dark)}
+.estado-warn{color:var(--amber)}
+.estado-red{color:var(--red)}
+.dot-ok{width:8px;height:8px;border-radius:50%;background:var(--teal);display:inline-block;margin-right:4px}
+.dot-red{width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block;margin-right:4px}
 
-  /* CUADRANTE */
-  .mes-nav {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 12px;
-  }
-  .mes-nav button {
-    width: 32px; height: 32px;
-    border: 0.5px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--white);
-    cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .mes-nav button svg { width: 16px; height: 16px; stroke: var(--text); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  .mes-titulo { font-size: 15px; font-weight: 600; }
+/* SOLICITUDES */
+.tabs{display:flex;gap:6px;margin-bottom:14px}
+.tab-btn{flex:1;padding:7px;border:0.5px solid var(--border);border-radius:var(--radius-sm);font-size:12px;cursor:pointer;background:var(--white);color:var(--text-muted);font-weight:500;transition:all .15s}
+.tab-btn.active{background:var(--teal-dark);color:white;border-color:var(--teal-dark)}
+.solicitud-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:0.5px solid var(--border)}
+.solicitud-item:last-child{border-bottom:none}
+.sol-avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0}
+.sol-info{flex:1;min-width:0}
+.sol-nombre{font-size:13px;font-weight:500}
+.sol-detalle{font-size:11px;color:var(--text-muted);margin-top:2px}
+.sol-actions{display:flex;gap:6px;margin-top:6px}
+.btn-accept{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;border:none;cursor:pointer;background:var(--teal-light);color:var(--teal-dark)}
+.btn-reject{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;border:none;cursor:pointer;background:var(--red-light);color:var(--red)}
+.badge-estado{padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;white-space:nowrap}
+.badge-pendiente{background:var(--amber-light);color:var(--amber)}
+.badge-aprobada{background:var(--teal-light);color:var(--teal-dark)}
+.badge-vetada{background:var(--red-light);color:var(--red)}
 
-  .leyenda {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-bottom: 12px;
-  }
-  .leyenda-item {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 11px;
-    color: var(--text-muted);
-  }
-  .leyenda-dot { width: 10px; height: 10px; border-radius: 3px; }
+/* PERFIL */
+.perfil-header{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+.perfil-avatar{width:56px;height:56px;border-radius:50%;background:var(--teal-light);color:var(--teal-dark);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;flex-shrink:0}
+.perfil-nombre{font-size:17px;font-weight:600}
+.perfil-rol{font-size:12px;color:var(--text-muted);margin-top:2px}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.stat-box{background:var(--bg);border-radius:var(--radius-sm);padding:10px 6px;text-align:center}
+.stat-num{font-size:20px;font-weight:700}
+.stat-lbl{font-size:10px;color:var(--text-muted);margin-top:2px}
 
-  .cuadrante-wrap { overflow-x: auto; border-radius: var(--radius); border: 0.5px solid var(--border); }
-  .cuadrante-tabla {
-    border-collapse: collapse;
-    font-size: 11px;
-    min-width: 100%;
-    background: var(--white);
-  }
-  .cuadrante-tabla th {
-    background: var(--gray-light);
-    padding: 5px 4px;
-    text-align: center;
-    font-weight: 600;
-    border-right: 0.5px solid var(--border);
-    border-bottom: 0.5px solid var(--border);
-    white-space: nowrap;
-    font-size: 10px;
-    color: var(--gray);
-    position: sticky;
-    top: 0;
-  }
-  .cuadrante-tabla th.col-nombre {
-    text-align: left;
-    padding-left: 10px;
-    min-width: 90px;
-    position: sticky;
-    left: 0;
-    z-index: 2;
-    background: var(--gray-light);
-  }
-  .cuadrante-tabla td {
-    padding: 3px 2px;
-    text-align: center;
-    border-right: 0.5px solid var(--border);
-    border-bottom: 0.5px solid var(--border);
-    min-width: 30px;
-  }
-  .cuadrante-tabla td.nombre-cel {
-    text-align: left;
-    padding-left: 10px;
-    font-weight: 500;
-    white-space: nowrap;
-    font-size: 11px;
-    position: sticky;
-    left: 0;
-    background: var(--white);
-    z-index: 1;
-  }
-  .cuadrante-tabla tr:last-child td { border-bottom: none; }
-  .cuadrante-tabla tr.fila-propia td { background: #F0FBF7 !important; }
-  .cuadrante-tabla tr.fila-propia td.nombre-cel { background: #E1F5EE !important; }
-
-  .turno-pill {
-    display: inline-block;
-    padding: 2px 3px;
-    border-radius: 3px;
-    font-size: 9px;
-    font-weight: 600;
-    min-width: 24px;
-    text-align: center;
-    cursor: pointer;
-    transition: opacity .1s;
-  }
-  .turno-pill:hover { opacity: .75; }
-
-  /* Colores de turno */
-  .t-M  { background: var(--teal-light);   color: var(--teal-dark); }
-  .t-CD { background: var(--green-light);  color: var(--green); }
-  .t-T  { background: var(--amber-light);  color: var(--amber); }
-  .t-TC { background: var(--pink-light);   color: var(--pink); }
-  .t-N  { background: var(--purple-light); color: var(--purple); }
-  .t-L  { background: var(--gray-light);   color: var(--gray); }
-  .t-F  { background: var(--gray-light);   color: var(--gray); }
-  .t-AP { background: var(--blue-light);   color: var(--blue); }
-  .t-P  { background: var(--blue-light);   color: var(--blue); }
-  .t-HE { background: var(--red-light);    color: var(--red); }
-  .t-DH { background: var(--blue-light);   color: var(--blue); }
-  .t-IT { background: var(--red-light);    color: var(--red); }
-  .t-VAC{ background: var(--green-light);  color: var(--green); }
-
-  .col-findes { background: #FAFAF8; }
-  .col-hoy { background: #FFF8E6 !important; }
-
-  /* SERVICIOS MÍNIMOS */
-  .sm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
-  .sm-card {
-    background: var(--white);
-    border: 0.5px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 10px 12px;
-  }
-  .sm-header { font-size: 11px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; }
-  .sm-row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; padding: 3px 0; border-bottom: 0.5px solid var(--border); }
-  .sm-row:last-child { border-bottom: none; }
-  .sm-num { font-weight: 600; font-size: 14px; }
-  .estado-ok   { color: var(--teal-dark); }
-  .estado-warn { color: var(--amber); }
-  .estado-red  { color: var(--red); }
-  .dot-ok   { width: 8px; height: 8px; border-radius: 50%; background: var(--teal); display: inline-block; margin-right: 4px; }
-  .dot-warn { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); display: inline-block; margin-right: 4px; }
-  .dot-red  { width: 8px; height: 8px; border-radius: 50%; background: var(--red); display: inline-block; margin-right: 4px; }
-
-  /* SOLICITUDES */
-  .tabs { display: flex; gap: 6px; margin-bottom: 14px; }
-  .tab-btn {
-    flex: 1;
-    padding: 7px;
-    border: 0.5px solid var(--border);
-    border-radius: var(--radius-sm);
-    font-size: 12px;
-    cursor: pointer;
-    background: var(--white);
-    color: var(--text-muted);
-    font-weight: 500;
-    transition: all .15s;
-  }
-  .tab-btn.active { background: var(--teal-dark); color: white; border-color: var(--teal-dark); }
-
-  .solicitud-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 10px 0;
-    border-bottom: 0.5px solid var(--border);
-  }
-  .solicitud-item:last-child { border-bottom: none; }
-  .sol-avatar {
-    width: 36px; height: 36px;
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 12px; font-weight: 600;
-    flex-shrink: 0;
-  }
-  .sol-info { flex: 1; min-width: 0; }
-  .sol-nombre { font-size: 13px; font-weight: 500; }
-  .sol-detalle { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
-  .sol-actions { display: flex; gap: 6px; margin-top: 6px; }
-  .btn-accept { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; border: none; cursor: pointer; background: var(--teal-light); color: var(--teal-dark); }
-  .btn-reject { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; border: none; cursor: pointer; background: var(--red-light); color: var(--red); }
-  .badge-estado {
-    padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 600;
-    white-space: nowrap;
-  }
-  .badge-pendiente { background: var(--amber-light); color: var(--amber); }
-  .badge-aprobada  { background: var(--teal-light);  color: var(--teal-dark); }
-  .badge-vetada    { background: var(--red-light);   color: var(--red); }
-
-  /* PERFIL */
-  .perfil-header {
-    display: flex; align-items: center; gap: 14px;
-    margin-bottom: 16px;
-  }
-  .perfil-avatar {
-    width: 56px; height: 56px;
-    border-radius: 50%;
-    background: var(--teal-light);
-    color: var(--teal-dark);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 20px; font-weight: 700;
-    flex-shrink: 0;
-  }
-  .perfil-nombre { font-size: 17px; font-weight: 600; }
-  .perfil-rol { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
-
-  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
-  .stat-box { background: var(--bg); border-radius: var(--radius-sm); padding: 10px 6px; text-align: center; }
-  .stat-num { font-size: 20px; font-weight: 700; }
-  .stat-lbl { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
-
-  .he-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 0.5px solid var(--border); font-size: 12px; }
-  .he-item:last-child { border-bottom: none; }
-
-  /* NOTIFICACIONES */
-  .notif-item { display: flex; gap: 10px; padding: 10px 0; border-bottom: 0.5px solid var(--border); }
-  .notif-item:last-child { border-bottom: none; }
-  .notif-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
-  .notif-nueva { background: var(--teal); }
-  .notif-leida { background: var(--border); }
-  .notif-text { font-size: 13px; line-height: 1.4; }
-  .notif-time { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
-
-  .empty-state { text-align: center; padding: 32px 16px; color: var(--text-muted); font-size: 13px; }
-  .empty-state svg { width: 40px; height: 40px; stroke: var(--border); fill: none; stroke-width: 1.5; margin: 0 auto 10px; display: block; }
+/* LOADING */
+.loading{text-align:center;padding:32px;color:var(--text-muted);font-size:13px}
+.spinner{width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 10px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty-state{text-align:center;padding:32px 16px;color:var(--text-muted);font-size:13px}
 </style>
 </head>
 <body>
@@ -424,7 +153,6 @@
   </div>
   <div class="login-title">Turno Concilia</div>
   <div class="login-sub">Residencia Santa Llúcia · Dénia</div>
-
   <div class="form-group">
     <label class="form-label">Email</label>
     <input class="form-input" type="email" id="login-email" placeholder="tu@email.com">
@@ -434,35 +162,29 @@
     <input class="form-input" type="password" id="login-pass" placeholder="••••••••">
   </div>
   <button class="btn-primary" onclick="doLogin()">Entrar</button>
-
+  <div id="login-error" class="login-error" style="display:none"></div>
   <div class="login-demo">
-    <div style="margin-bottom:6px">— Acceso demo (pulse para entrar) —</div>
-    <div class="demo-users">
-      <button class="demo-btn" onclick="loginDemo('superadmin')">
-        <span class="demo-badge" style="background:#EEEDFE;color:#3C3489">Superadmin</span>
-        Admin General
-      </button>
-      <button class="demo-btn" onclick="loginDemo('coordinadora')">
-        <span class="demo-badge" style="background:#E1F5EE;color:#085041">Coordinadora</span>
-        Coordinadora de turno
-      </button>
-      <button class="demo-btn" onclick="loginDemo('auxiliar')">
-        <span class="demo-badge" style="background:#FAEEDA;color:#633806">Auxiliar</span>
-        INMA SOLER
-      </button>
-    </div>
+    <div style="margin-bottom:6px">— Acceso demo —</div>
+    <button class="demo-btn" onclick="loginDemo('superadmin')">
+      <span class="demo-badge" style="background:#EEEDFE;color:#3C3489">Superadmin</span>Admin General
+    </button>
+    <button class="demo-btn" onclick="loginDemo('coordinadora')">
+      <span class="demo-badge" style="background:#E1F5EE;color:#085041">Coordinadora</span>Coordinadora
+    </button>
+    <button class="demo-btn" onclick="loginDemo('auxiliar')">
+      <span class="demo-badge" style="background:#FAEEDA;color:#633806">Auxiliar</span>INMA SOLER
+    </button>
   </div>
 </div>
 
-<!-- APP SHELL -->
+<!-- APP -->
 <div id="app-shell" style="display:none">
-
   <div class="topbar">
-    <div class="topbar-left">
+    <div>
       <div class="topbar-title">Turno Concilia</div>
-      <div class="topbar-sub" id="topbar-sub">Residencia Santa Llúcia</div>
+      <div class="topbar-sub">Residencia Santa Llúcia</div>
     </div>
-    <div class="topbar-right">
+    <div style="display:flex;align-items:center;gap:10px">
       <span class="topbar-user" id="topbar-user"></span>
       <button class="btn-logout" onclick="doLogout()">Salir</button>
     </div>
@@ -483,25 +205,17 @@
       <div class="leyenda-item"><div class="leyenda-dot" style="background:#EEEDFE;border:1px solid #534AB7"></div>Noche</div>
       <div class="leyenda-item"><div class="leyenda-dot" style="background:#FCEBEB;border:1px solid #A32D2D"></div>HE/IT</div>
     </div>
-    <div class="cuadrante-wrap">
-      <table class="cuadrante-tabla" id="cuadrante-tabla"></table>
-    </div>
+    <div id="cuadrante-container"><div class="loading"><div class="spinner"></div>Cargando cuadrante...</div></div>
   </div>
 
-  <!-- SERVICIOS MÍNIMOS -->
+  <!-- PLANTILLA -->
   <div class="page" id="page-sm">
     <div class="card">
-      <div class="card-title">
-        <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        Plantilla efectiva hoy
-      </div>
-      <div id="sm-hoy"></div>
+      <div class="card-title"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Plantilla efectiva hoy</div>
+      <div id="sm-hoy"><div class="loading"><div class="spinner"></div></div></div>
     </div>
     <div class="card">
-      <div class="card-title">
-        <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        Esta semana
-      </div>
+      <div class="card-title"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Esta semana</div>
       <div id="sm-semana"></div>
     </div>
   </div>
@@ -537,19 +251,10 @@
             <input type="date" class="form-input" id="sol-fecha-fin">
           </div>
         </div>
-        <div class="form-group" id="sol-contraparte-wrap">
+        <div class="form-group">
           <label class="form-label">Compañera (para cambios)</label>
           <select class="form-input" id="sol-contraparte">
             <option value="">Selecciona compañera...</option>
-            <option>ANA GARCIA</option>
-            <option>XIMO</option>
-            <option>MARIBEL SOBRECA</option>
-            <option>REME BRIONES</option>
-            <option>MARISA</option>
-            <option>SILVIA</option>
-            <option>TERE GRAU</option>
-            <option>ERIKA</option>
-            <option>NORMA</option>
           </select>
         </div>
         <div class="form-group">
@@ -561,7 +266,7 @@
     </div>
   </div>
 
-  <!-- PERFIL / HE -->
+  <!-- PERFIL -->
   <div class="page" id="page-perfil">
     <div class="card">
       <div class="perfil-header">
@@ -574,150 +279,213 @@
       <div class="stats-grid" id="perfil-stats"></div>
     </div>
     <div class="card">
-      <div class="card-title">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        Bolsa de horas extra
-      </div>
-      <div id="he-lista"></div>
-    </div>
-    <div class="card" id="card-notif">
-      <div class="card-title">
-        <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-        Notificaciones recientes
-      </div>
-      <div id="notif-lista"></div>
+      <div class="card-title"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Bolsa de horas extra</div>
+      <div id="he-lista"><div class="empty-state">Sin horas extra pendientes</div></div>
     </div>
   </div>
 
-  <!-- BOTTOM NAV -->
   <nav class="bottom-nav">
     <button class="nav-item active" id="nav-cuadrante" onclick="showPage('cuadrante')">
-      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-      Cuadrante
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Cuadrante
     </button>
     <button class="nav-item" id="nav-sm" onclick="showPage('sm')">
-      <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-      Plantilla
+      <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Plantilla
     </button>
     <button class="nav-item" id="nav-solicitudes" onclick="showPage('solicitudes')">
-      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
-      Solicitudes
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>Solicitudes
     </button>
     <button class="nav-item" id="nav-perfil" onclick="showPage('perfil')">
-      <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-      Mi perfil
+      <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Mi perfil
     </button>
   </nav>
-
 </div>
 
 <script>
-const USUARIOS = {
-  superadmin:   { nombre: 'Admin General',      nick: 'ADMIN',      rol: 'Superadmin',    iniciales: 'AG' },
-  coordinadora: { nombre: 'Coordinadora',        nick: 'COORD',      rol: 'Coordinadora',  iniciales: 'CO' },
-  auxiliar:     { nombre: 'INMA SOLER',          nick: 'INMA SOLER', rol: 'Auxiliar',      iniciales: 'IS' },
-};
-
-const AUXILIARES = [
-  'INMA SOLER','ANA GARCIA','XIMO','MARIBEL SOBRECA','REME BRIONES',
-  'MARISA','SILVIA','TERE GRAU','ERIKA','NORMA','MAYTE GARCÍA',
-  'NOEMI/MC','REME RAMIREZ','ESTELA','CRISTINA SIRERA','MARIBEL',
-  'RAQUEL','LAURA','ROSA VICIANO','ISABEL TORRES','RITA SIVERA',
-  'MARISE','MAR ORDOÑEZ','ESTHER','MONICA','MARISOL/ALE',
-  'EVA','MARTA','SONIA','FATIMA','SELMA','Mº JOSÉ'
-];
-
-const CODIGOS_TURNO = {
-  M1:'M',M2:'M',M3:'M',M4:'M',M5:'M',M6:'M',
-  M7:'M',M8:'M',M9:'M',M10:'M',M11:'M',M12:'M',
-  CD1:'CD',CD2:'CD',CD3:'CD',
-  T1:'T',T2:'T',T3:'T',T4:'T',T5:'T',T6:'T',
-  TC1:'TC',TC2:'TC',TC3:'TC',
-  N1:'N',N:'N',
-  L:'L',F:'F',AP:'AP',P:'P',HE:'HE',DH:'DH',IT:'IT',VAC:'VAC',
-};
-
-function claseColor(cod) {
-  if (!cod) return 't-L';
-  const tipo = CODIGOS_TURNO[cod] || cod;
-  const mapa = { M:'t-M', CD:'t-CD', T:'t-T', TC:'t-TC', N:'t-N',
-                 L:'t-L', F:'t-F', AP:'t-AP', P:'t-P',
-                 HE:'t-HE', DH:'t-DH', IT:'t-IT', VAC:'t-VAC' };
-  return mapa[tipo] || 't-L';
-}
-
-const ENERO_DATA = {
-  'INMA SOLER':  ['F','L','T3','T4','TC1','L','L','M7','M2','L','L','T5','T4','T3','L','L','M4','M8','L','M5','M3','T2','CT3','L','L','M4','T2','CT3','L','M10','M7'],
-  'ANA GARCIA':  ['M7','M2','L','L','T5','T4','T3','L','L','M4','M8','L','M5','M3','T2','CT3','L','L','M4','T2','CT3','L','M10','M7','M3','M5','N','L','L','M9','L'],
-  'XIMO':        ['L','L','M4','M8','L','F','M3','T2','CT3','L','L','M4','T2','CT3','L','M10','M7','M3','M5','N','L','L','M9','L','L','M3','L','L','M5','T5','T2'],
-  'MARIBEL SOBRECA':['T2','CT3','L','L','M4','T2','CT3','L','M10','M7','M3','M5','N','L','L','M9','L','L','M3','L','L','M5','T5','T2','T6','L','L','T4','CT3','T2','L'],
-  'REME BRIONES':['L','M10','M7','M3','M5','N','L','L','M9','L','L','M3','L','L','M5','T5','T2','T6','L','L','T4','CT3','T2','L','N','L','L','M9','M4','L','M5'],
-  'MARISA':      ['L','M9','L','L','M3','L','L','M5','T5','T2','T6','L','L','T4','CT3','T2','L','N','L','L','M9','M4','L','M5','M2','T2','T3','L','M10','M5','L'],
-  'SILVIA':      ['M5','T5','T2','T6','L','L','T4','CT3','T2','L','N','L','L','M9','M4','L','M5','M2','T2','T3','L','M10','M5','L','L','M8','M3','M5','TC1','L','T5'],
-  'TERE GRAU':   ['F','T2','L','N','L','L','M9','M4','L','M5','M2','T2','T3','L','M10','M5','L','L','M8','M3','M5','TC1','L','T5','T1','L','M1','M8','CD1','CD3','L'],
-  'ERIKA':       ['F','L','M5','M2','T2','T3','L','M10','M5','L','L','M8','M3','M5','TC1','L','T5','T1','L','M1','M8','CD1','CD3','L','L','T4','CT3','TC1','N','L','L'],
-  'NORMA':       ['M10','M5','L','L','M8','M3','M5','TC1','L','T5','T1','L','M1','M8','CD1','CD3','L','L','T4','CT3','TC1','N','L','L','L','M9','CD3','CD2','L','M6','M2'],
-  'MAYTE GARCÍA':['T3','L','T5','T1','L','M1','M8','CD1','CD3','L','L','T4','CT3','TC1','N','L','L','L','M9','CD3','CD2','L','M6','M2','M1','L','M11','M10','M8','T4','L'],
-  'NOEMI/MC':    ['F','CD3','L','L','T4','F','TC1','N','L','L','L','M9','CD3','CD2','L','M6','M2','M1','L','M11','M10','M8','T4','L','L','M6','TC2','T2','T3','L','M6'],
-  'REME RAMIREZ':['N','L','L','L','M9','M7','CD2','L','M6','M2','M1','L','M11','M10','M8','T4','L','L','M6','TC2','T2','T3','L','M6','M4','N','L','L','M6','M7','L'],
-  'ESTELA':      ['L','M6','M2','M1','L','M4','M10','M8','T4','L','L','M6','TC2','T2','T3','L','M6','M4','N','L','L','M6','M7','L','L','CD1','M7','M11','L','L','T1'],
-  'CRISTINA SIRERA':['M8','T4','L','L','M6','T6','T2','T3','L','M6','M4','N','L','L','M6','M7','L','L','CD1','M7','M11','L','L','T1','T2','T1','L','M4','M9','CD1','L'],
-  'MARIBEL':     ['T1','L','M6','M4','N','L','L','M6','M7','L','L','CD1','M7','M11','L','L','T1','T2','T1','L','M4','M9','CD1','L','L','M1','TC1','TC2','L','M12','M3'],
-  'RAQUEL':      ['M6','M7','L','L','CD1','F','M11','L','L','T1','T2','T1','L','M4','M9','CD1','L','L','M1','TC1','TC2','L','M12','M3','M7','L','M10','M1','T4','T1','L'],
-  'LAURA':       ['L','L','T1','T2','T1','L','M4','M9','CD1','L','L','M1','TC1','TC2','L','M12','M3','M7','L','M10','M1','T4','T1','L','L','CD2','CD1','L','M11','M4','N'],
-  'ROSA VICIANO':['M3','CD1','L','L','M1','F','TC2','L','M12','M3','M7','L','M10','M1','T4','T1','L','L','CD2','CD1','L','M11','M4','N','L','L','M8','M2','T1','TC2','L'],
-  'ISABEL TORRES':['L','M12','M3','M7','L','F','M1','T4','T1','L','L','CD2','CD1','L','M11','M4','N','L','L','M8','M2','T1','TC2','L','L','M10','T1','L','L','M11','T4'],
-  'RITA SIVERA': ['T4','T1','L','L','CD2','F','L','M11','M4','N','L','L','M8','M2','T1','TC2','L','L','M10','T1','L','L','M11','T4','T5','L','M6','CD1','M2','M3','L'],
-  'MARISE':      ['F','M4','N','L','L','M8','M2','T1','TC2','L','L','M10','T1','L','L','M11','T4','T5','L','M6','CD1','M2','M3','L','L','T3','T5','L','CD3','CD2','M1'],
-  'MAR ORDOÑEZ': ['T1','TC2','L','L','M10','T1','L','L','M11','T4','T5','L','M6','CD1','M2','M3','L','L','T3','T5','L','CD3','CD2','M1','M5','L','M12','M7','T5','TC1','L'],
-  'ESTHER':      ['L','M11','T4','T5','L','F','CD1','M2','M3','L','L','T3','T5','L','CD3','CD2','M1','M5','L','M12','M7','T5','TC1','L','L','M2','M9','N','L','L','T6'],
-  'MONICA':      ['M2','M3','L','L','T3','T5','L','CD3','CD2','M1','M5','L','M12','M7','T5','TC1','L','L','M2','M9','N','L','L','T6','T3','TC2','L','L','M3','M8','L'],
-  'MARISOL/ALE': ['M4','CD2','M1','M5','L','M5','M7','T5','TC1','L','L','M2','M9','N','L','L','T6','T3','TC2','L','L','M3','M8','L','L','M7','M4','T1','L','M1','M8'],
-  'EVA':         ['T5','TC1','L','L','M2','F','N','L','L','T6','T3','TC2','L','L','M3','M8','L','L','M7','M4','T1','L','M1','M8','M6','CT3','L','M6','M1','T3','L'],
-  'MARTA':       ['L','L','T6','T3','TC2','L','L','M3','M8','L','L','M7','M4','T1','L','M1','M8','M6','CT3','L','M6','M1','T3','L','L','CD3','CD2','T5','TC2','N','L'],
-  'SONIA':       ['F','M8','L','L','M7','F','T1','L','M1','M8','M6','CT3','L','M6','M1','T3','L','L','CD3','CD2','T5','TC2','N','L','L','M11','M2','CD3','CD2','L','T3'],
-  'FATIMA':      ['L','M1','M8','M6','CT3','L','M6','M1','T3','L','L','CD3','CD2','T5','TC2','N','L','L','M11','M2','CD3','CD2','L','T3','T4','TC1','L','L','M7','M2','L'],
-  'SELMA':       ['M1','T3','L','L','CD3','M6','T5','TC2','N','L','L','M11','M2','CD3','CD2','L','T3','T4','TC1','L','L','M7','M2','L','L','T5','T4','T3','L','L','M4'],
-  'Mº JOSÉ':     ['T6','N','L','L','M11','M2','CD3','CD2','L','T3','T4','TC1','L','L','M7','M2','L','L','T5','T4','T3','L','L','M4','M8','L','M5','M3','T2','CT3','L'],
-};
+const SUPABASE_URL = 'https://apcidgsjefltilrzegof.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFwY2lkZ3NqZWZsdGlscnplZ29mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2ODc4MjQsImV4cCI6MjA5NDI2MzgyNH0.jiXpCvxoSDjVq0nWL3vcFG-AzUvQKRyiWAuEjuBRMn0';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const DIAS_SEMANA = ['D','L','M','X','J','V','S'];
 
+// Datos de enero del Excel (mientras no haya datos en Supabase)
+const ENERO_DATA = {
+  'INMA SOLER':['F','L','T3','T4','TC1','L','L','M7','M2','L','L','T5','T4','T3','L','L','M4','M8','L','M5','M3','T2','CT3','L','L','M4','T2','CT3','L','M10','M7'],
+  'ANA GARCIA':['M7','M2','L','L','T5','T4','T3','L','L','M4','M8','L','M5','M3','T2','CT3','L','L','M4','T2','CT3','L','M10','M7','M3','M5','N','L','L','M9','L'],
+  'XIMO':['L','L','M4','M8','L','F','M3','T2','CT3','L','L','M4','T2','CT3','L','M10','M7','M3','M5','N','L','L','M9','L','L','M3','L','L','M5','T5','T2'],
+  'MARIBEL SOBRECA':['T2','CT3','L','L','M4','T2','CT3','L','M10','M7','M3','M5','N','L','L','M9','L','L','M3','L','L','M5','T5','T2','T6','L','L','T4','CT3','T2','L'],
+  'REME BRIONES':['L','M10','M7','M3','M5','N','L','L','M9','L','L','M3','L','L','M5','T5','T2','T6','L','L','T4','CT3','T2','L','N','L','L','M9','M4','L','M5'],
+  'MARISA':['L','M9','L','L','M3','L','L','M5','T5','T2','T6','L','L','T4','CT3','T2','L','N','L','L','M9','M4','L','M5','M2','T2','T3','L','M10','M5','L'],
+  'SILVIA':['M5','T5','T2','T6','L','L','T4','CT3','T2','L','N','L','L','M9','M4','L','M5','M2','T2','T3','L','M10','M5','L','L','M8','M3','M5','TC1','L','T5'],
+  'TERE GRAU':['F','T2','L','N','L','L','M9','M4','L','M5','M2','T2','T3','L','M10','M5','L','L','M8','M3','M5','TC1','L','T5','T1','L','M1','M8','CD1','CD3','L'],
+  'ERIKA':['F','L','M5','M2','T2','T3','L','M10','M5','L','L','M8','M3','M5','TC1','L','T5','T1','L','M1','M8','CD1','CD3','L','L','T4','CT3','TC1','N','L','L'],
+  'NORMA':['M10','M5','L','L','M8','M3','M5','TC1','L','T5','T1','L','M1','M8','CD1','CD3','L','L','T4','CT3','TC1','N','L','L','L','M9','CD3','CD2','L','M6','M2'],
+  'MAYTE GARCÍA':['T3','L','T5','T1','L','M1','M8','CD1','CD3','L','L','T4','CT3','TC1','N','L','L','L','M9','CD3','CD2','L','M6','M2','M1','L','M11','M10','M8','T4','L'],
+  'NOEMI/MC':['F','CD3','L','L','T4','F','TC1','N','L','L','L','M9','CD3','CD2','L','M6','M2','M1','L','M11','M10','M8','T4','L','L','M6','TC2','T2','T3','L','M6'],
+  'REME RAMIREZ':['N','L','L','L','M9','M7','CD2','L','M6','M2','M1','L','M11','M10','M8','T4','L','L','M6','TC2','T2','T3','L','M6','M4','N','L','L','M6','M7','L'],
+  'ESTELA':['L','M6','M2','M1','L','M4','M10','M8','T4','L','L','M6','TC2','T2','T3','L','M6','M4','N','L','L','M6','M7','L','L','CD1','M7','M11','L','L','T1'],
+  'CRISTINA SIRERA':['M8','T4','L','L','M6','T6','T2','T3','L','M6','M4','N','L','L','M6','M7','L','L','CD1','M7','M11','L','L','T1','T2','T1','L','M4','M9','CD1','L'],
+  'MARIBEL':['T1','L','M6','M4','N','L','L','M6','M7','L','L','CD1','M7','M11','L','L','T1','T2','T1','L','M4','M9','CD1','L','L','M1','TC1','TC2','L','M12','M3'],
+  'RAQUEL':['M6','M7','L','L','CD1','F','M11','L','L','T1','T2','T1','L','M4','M9','CD1','L','L','M1','TC1','TC2','L','M12','M3','M7','L','M10','M1','T4','T1','L'],
+  'LAURA':['L','L','T1','T2','T1','L','M4','M9','CD1','L','L','M1','TC1','TC2','L','M12','M3','M7','L','M10','M1','T4','T1','L','L','CD2','CD1','L','M11','M4','N'],
+  'ROSA VICIANO':['M3','CD1','L','L','M1','F','TC2','L','M12','M3','M7','L','M10','M1','T4','T1','L','L','CD2','CD1','L','M11','M4','N','L','L','M8','M2','T1','TC2','L'],
+  'ISABEL TORRES':['L','M12','M3','M7','L','F','M1','T4','T1','L','L','CD2','CD1','L','M11','M4','N','L','L','M8','M2','T1','TC2','L','L','M10','T1','L','L','M11','T4'],
+  'RITA SIVERA':['T4','T1','L','L','CD2','F','L','M11','M4','N','L','L','M8','M2','T1','TC2','L','L','M10','T1','L','L','M11','T4','T5','L','M6','CD1','M2','M3','L'],
+  'MARISE':['F','M4','N','L','L','M8','M2','T1','TC2','L','L','M10','T1','L','L','M11','T4','T5','L','M6','CD1','M2','M3','L','L','T3','T5','L','CD3','CD2','M1'],
+  'MAR ORDOÑEZ':['T1','TC2','L','L','M10','T1','L','L','M11','T4','T5','L','M6','CD1','M2','M3','L','L','T3','T5','L','CD3','CD2','M1','M5','L','M12','M7','T5','TC1','L'],
+  'ESTHER':['L','M11','T4','T5','L','F','CD1','M2','M3','L','L','T3','T5','L','CD3','CD2','M1','M5','L','M12','M7','T5','TC1','L','L','M2','M9','N','L','L','T6'],
+  'MONICA':['M2','M3','L','L','T3','T5','L','CD3','CD2','M1','M5','L','M12','M7','T5','TC1','L','L','M2','M9','N','L','L','T6','T3','TC2','L','L','M3','M8','L'],
+  'MARISOL/ALE':['M4','CD2','M1','M5','L','M5','M7','T5','TC1','L','L','M2','M9','N','L','L','T6','T3','TC2','L','L','M3','M8','L','L','M7','M4','T1','L','M1','M8'],
+  'EVA':['T5','TC1','L','L','M2','F','N','L','L','T6','T3','TC2','L','L','M3','M8','L','L','M7','M4','T1','L','M1','M8','M6','CT3','L','M6','M1','T3','L'],
+  'MARTA':['L','L','T6','T3','TC2','L','L','M3','M8','L','L','M7','M4','T1','L','M1','M8','M6','CT3','L','M6','M1','T3','L','L','CD3','CD2','T5','TC2','N','L'],
+  'SONIA':['F','M8','L','L','M7','F','T1','L','M1','M8','M6','CT3','L','M6','M1','T3','L','L','CD3','CD2','T5','TC2','N','L','L','M11','M2','CD3','CD2','L','T3'],
+  'FATIMA':['L','M1','M8','M6','CT3','L','M6','M1','T3','L','L','CD3','CD2','T5','TC2','N','L','L','M11','M2','CD3','CD2','L','T3','T4','TC1','L','L','M7','M2','L'],
+  'SELMA':['M1','T3','L','L','CD3','M6','T5','TC2','N','L','L','M11','M2','CD3','CD2','L','T3','T4','TC1','L','L','M7','M2','L','L','T5','T4','T3','L','L','M4'],
+  'Mº JOSÉ':['T6','N','L','L','M11','M2','CD3','CD2','L','T3','T4','TC1','L','L','M7','M2','L','L','T5','T4','T3','L','L','M4','M8','L','M5','M3','T2','CT3','L'],
+};
+
 let currentUser = null;
 let mesActual = 0;
 let anioActual = 2026;
+let trabajadoras = [];
+let cuadranteCache = {};
 
-function doLogin() {
-  const email = document.getElementById('login-email').value;
-  if (email.includes('admin')) loginDemo('superadmin');
-  else if (email.includes('coord')) loginDemo('coordinadora');
-  else loginDemo('auxiliar');
+function claseColor(cod) {
+  if (!cod) return 't-L';
+  if (cod.startsWith('M')) return 't-M';
+  if (cod.startsWith('CD')) return 't-CD';
+  if (cod.startsWith('TC') || cod.startsWith('CT')) return 't-TC';
+  if (cod.startsWith('T')) return 't-T';
+  if (cod === 'N' || cod === 'N1') return 't-N';
+  const mapa = {L:'t-L',F:'t-F',AP:'t-AP',P:'t-P',HE:'t-HE',DH:'t-DH',IT:'t-IT',VAC:'t-VAC'};
+  return mapa[cod] || 't-L';
 }
 
-function loginDemo(tipo) {
-  currentUser = { ...USUARIOS[tipo], tipo };
-  document.getElementById('page-login').style.display = 'none';
-  document.getElementById('app-shell').style.display = 'block';
-  document.getElementById('topbar-user').textContent = currentUser.nick;
-  cargarPerfil();
-  renderCuadrante();
-  renderSM();
-  renderSolicitudes();
-  renderNotificaciones();
+// LOGIN
+async function doLogin() {
+  const email = document.getElementById('login-email').value;
+  const pass = document.getElementById('login-pass').value;
+  const err = document.getElementById('login-error');
+  err.style.display = 'none';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  if (error) { err.textContent = 'Email o contraseña incorrectos'; err.style.display = 'block'; return; }
+  await cargarSesion();
+}
+
+// LOGIN DEMO (sin Supabase Auth, carga directamente de la tabla)
+async function loginDemo(tipo) {
+  const emails = { superadmin:'admin@santallucia.es', coordinadora:'coordinadora@santallucia.es', auxiliar:'inma.soler@santallucia.es' };
+  const { data } = await sb.from('trabajadoras').select('*').eq('email', emails[tipo]).single();
+  if (data) {
+    currentUser = data;
+    iniciarApp();
+  }
+}
+
+async function cargarSesion() {
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return;
+  const { data } = await sb.from('trabajadoras').select('*').eq('auth_id', user.id).single();
+  if (data) { currentUser = data; iniciarApp(); }
 }
 
 function doLogout() {
+  sb.auth.signOut();
   currentUser = null;
+  cuadranteCache = {};
   document.getElementById('page-login').style.display = 'flex';
   document.getElementById('app-shell').style.display = 'none';
 }
 
-function showPage(nombre) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.getElementById('page-' + nombre).classList.add('active');
-  document.getElementById('nav-' + nombre).classList.add('active');
+async function iniciarApp() {
+  document.getElementById('page-login').style.display = 'none';
+  document.getElementById('app-shell').style.display = 'block';
+  document.getElementById('topbar-user').textContent = currentUser.nick;
+  await cargarTrabajadoras();
+  renderCuadrante();
+  renderSM();
+  renderSolicitudes();
+  cargarPerfil();
+}
+
+async function cargarTrabajadoras() {
+  const { data } = await sb.from('trabajadoras').select('id,nick,nombre,rol').eq('activa', true).order('nick');
+  if (data) {
+    trabajadoras = data;
+    const sel = document.getElementById('sol-contraparte');
+    sel.innerHTML = '<option value="">Selecciona compañera...</option>';
+    data.filter(t => t.id !== currentUser.id).forEach(t => {
+      const o = document.createElement('option');
+      o.value = t.id; o.textContent = t.nick;
+      sel.appendChild(o);
+    });
+  }
+}
+
+// CUADRANTE
+function diasEnMes(m, a) { return new Date(a, m+1, 0).getDate(); }
+function diaSemana(a, m, d) { return new Date(a, m, d).getDay(); }
+function esFinde(a, m, d) { const ds = diaSemana(a,m,d); return ds===0||ds===6; }
+
+async function renderCuadrante() {
+  document.getElementById('mes-titulo').textContent = MESES[mesActual] + ' ' + anioActual;
+  const container = document.getElementById('cuadrante-container');
+  container.innerHTML = '<div class="loading"><div class="spinner"></div>Cargando cuadrante...</div>';
+
+  const total = diasEnMes(mesActual, anioActual);
+  const fechaIni = `${anioActual}-${String(mesActual+1).padStart(2,'0')}-01`;
+  const fechaFin = `${anioActual}-${String(mesActual+1).padStart(2,'0')}-${String(total).padStart(2,'0')}`;
+  const cacheKey = `${anioActual}-${mesActual}`;
+
+  let filas = {};
+
+  // Intentar cargar de Supabase
+  const { data: dbData } = await sb.from('cuadrante')
+    .select('trabajadora_id, fecha, codigo_turno, incidencia, trabajadoras(nick)')
+    .gte('fecha', fechaIni).lte('fecha', fechaFin);
+
+  if (dbData && dbData.length > 0) {
+    dbData.forEach(r => {
+      const nick = r.trabajadoras?.nick || '';
+      if (!filas[nick]) filas[nick] = {};
+      const dia = parseInt(r.fecha.split('-')[2]);
+      filas[nick][dia] = r.incidencia || r.codigo_turno || '';
+    });
+  } else if (mesActual === 0 && anioActual === 2026) {
+    // Usar datos del Excel para enero 2026
+    Object.entries(ENERO_DATA).forEach(([nick, turnos]) => {
+      filas[nick] = {};
+      turnos.forEach((t, i) => { filas[nick][i+1] = t; });
+    });
+  }
+
+  const hoy = new Date();
+  const esHoy = (d) => hoy.getFullYear()===anioActual && hoy.getMonth()===mesActual && hoy.getDate()===d;
+
+  let html = '<div class="cuadrante-wrap"><table class="cuadrante-tabla"><thead><tr><th class="col-nombre">Auxiliar</th>';
+  for (let d=1; d<=total; d++) {
+    const ds = diaSemana(anioActual, mesActual, d);
+    html += `<th class="${esFinde(anioActual,mesActual,d)?'col-findes':''} ${esHoy(d)?'col-hoy':''}">${DIAS_SEMANA[ds]}<br>${d}</th>`;
+  }
+  html += '</tr></thead><tbody>';
+
+  const nicks = trabajadoras.length > 0 ? trabajadoras.map(t=>t.nick) : Object.keys(ENERO_DATA);
+  nicks.forEach(nick => {
+    const esMia = currentUser && currentUser.nick === nick;
+    html += `<tr${esMia?' class="fila-propia"':''}>`;
+    html += `<td class="nombre-cel">${nick}</td>`;
+    for (let d=1; d<=total; d++) {
+      const cod = (filas[nick] && filas[nick][d]) || '';
+      const cls = claseColor(cod);
+      html += `<td class="${esFinde(anioActual,mesActual,d)?'col-findes':''} ${esHoy(d)?'col-hoy':''}">`;
+      if (cod) html += `<span class="turno-pill ${cls}">${cod}</span>`;
+      html += '</td>';
+    }
+    html += '</tr>';
+  });
+
+  html += '</tbody></table></div>';
+  container.innerHTML = html;
 }
 
 function cambiarMes(delta) {
@@ -727,125 +495,82 @@ function cambiarMes(delta) {
   renderCuadrante();
 }
 
-function diasEnMes(mes, anio) { return new Date(anio, mes + 1, 0).getDate(); }
-function diaSemana(anio, mes, dia) { return new Date(anio, mes, dia).getDay(); }
-function esFinde(anio, mes, dia) { const d = diaSemana(anio, mes, dia); return d === 0 || d === 6; }
-
-function renderCuadrante() {
-  document.getElementById('mes-titulo').textContent = MESES[mesActual] + ' ' + anioActual;
-  const total = diasEnMes(mesActual, anioActual);
-  const tabla = document.getElementById('cuadrante-tabla');
-  const hoy = new Date();
-  const esHoy = (d) => hoy.getFullYear() === anioActual && hoy.getMonth() === mesActual && hoy.getDate() === d;
-
-  let html = '<thead><tr><th class="col-nombre">Auxiliar</th>';
-  for (let d = 1; d <= total; d++) {
-    const ds = diaSemana(anioActual, mesActual, d);
-    const dsLabel = DIAS_SEMANA[ds];
-    const finde = esFinde(anioActual, mesActual, d);
-    html += `<th class="${finde ? 'col-findes' : ''} ${esHoy(d) ? 'col-hoy' : ''}">${dsLabel}<br>${d}</th>`;
-  }
-  html += '</tr></thead><tbody>';
-
-  const data = mesActual === 0 ? ENERO_DATA : {};
-  AUXILIARES.forEach(nombre => {
-    const esMia = currentUser && currentUser.nick === nombre;
-    html += `<tr${esMia ? ' class="fila-propia"' : ''}>`;
-    html += `<td class="nombre-cel">${nombre}</td>`;
-    for (let d = 1; d <= total; d++) {
-      const turnos = data[nombre];
-      const cod = turnos ? (turnos[d-1] || '') : '';
-      const cls = claseColor(cod);
-      const finde = esFinde(anioActual, mesActual, d);
-      html += `<td class="${finde ? 'col-findes' : ''} ${esHoy(d) ? 'col-hoy' : ''}">`;
-      if (cod) html += `<span class="turno-pill ${cls}">${cod}</span>`;
-      html += `</td>`;
-    }
-    html += '</tr>';
-  });
-
-  html += '</tbody>';
-  tabla.innerHTML = html;
-}
-
+// SERVICIOS MÍNIMOS
 function renderSM() {
   const hoy = new Date();
   const diasSem = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
-  const esFinde = [0,6].includes(hoy.getDay());
-  const smM = esFinde ? 8 : 11;
-  const smT = esFinde ? 6 : 7;
-  const smN = 1;
+  const fe = [0,6].includes(hoy.getDay());
+  const smM = fe?8:11; const smT = fe?6:7;
+  const efM = fe?8:12; const efT = fe?6:7;
 
-  const plantillaM = esFinde ? 8 : 12;
-  const plantillaT = esFinde ? 6 : 7;
-
-  function filaEstado(lbl, efectiva, minimo) {
-    const ok = efectiva >= minimo;
-    const cls = ok ? 'estado-ok' : 'estado-red';
-    const dot = ok ? 'dot-ok' : 'dot-red';
+  function fila(lbl, ef, min) {
+    const ok = ef>=min;
     return `<div class="sm-row">
-      <span><span class="${dot}"></span>${lbl}</span>
-      <span class="sm-num ${cls}">${efectiva}/${minimo}</span>
+      <span><span class="${ok?'dot-ok':'dot-red'}"></span>${lbl}</span>
+      <span class="sm-num ${ok?'estado-ok':'estado-red'}">${ef}/${min}</span>
     </div>`;
   }
 
-  document.getElementById('sm-hoy').innerHTML = `
-    <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">${diasSem[hoy.getDay()]}, ${hoy.getDate()} de ${MESES[hoy.getMonth()]}</div>
-    ${filaEstado('Mañana', plantillaM, smM)}
-    ${filaEstado('Tarde', plantillaT, smT)}
-    ${filaEstado('Noche', 1, smN)}
-  `;
+  document.getElementById('sm-hoy').innerHTML =
+    `<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">${diasSem[hoy.getDay()]}, ${hoy.getDate()} de ${MESES[hoy.getMonth()]}</div>
+    ${fila('Mañana',efM,smM)}${fila('Tarde',efT,smT)}${fila('Noche',1,1)}`;
 
-  let semanaHtml = '';
-  for (let i = 0; i < 7; i++) {
-    const fecha = new Date(hoy); fecha.setDate(hoy.getDate() + i);
-    const fe = [0,6].includes(fecha.getDay());
-    const mMin = fe ? 8 : 11; const tMin = fe ? 6 : 7;
-    const mEf = fe ? 8 : 12; const tEf = fe ? 6 : 7;
-    const okM = mEf >= mMin; const okT = tEf >= tMin;
-    semanaHtml += `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:0.5px solid var(--border);font-size:12px">
-      <span>${diasSem[fecha.getDay()].slice(0,3)} ${fecha.getDate()}</span>
+  let html = '';
+  for (let i=0; i<7; i++) {
+    const f = new Date(hoy); f.setDate(hoy.getDate()+i);
+    const fe2 = [0,6].includes(f.getDay());
+    const mMin=fe2?8:11; const tMin=fe2?6:7;
+    const mEf=fe2?8:12; const tEf=fe2?6:7;
+    html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:0.5px solid var(--border);font-size:12px">
+      <span>${diasSem[f.getDay()].slice(0,3)} ${f.getDate()}</span>
       <span>
-        <span class="${okM ? 'estado-ok' : 'estado-red'}" style="margin-right:8px">M ${mEf}/${mMin}</span>
-        <span class="${okT ? 'estado-ok' : 'estado-red'}" style="margin-right:8px">T ${tEf}/${tMin}</span>
+        <span class="${mEf>=mMin?'estado-ok':'estado-red'}" style="margin-right:8px">M ${mEf}/${mMin}</span>
+        <span class="${tEf>=tMin?'estado-ok':'estado-red'}" style="margin-right:8px">T ${tEf}/${tMin}</span>
         <span class="estado-ok">N 1/1</span>
       </span>
     </div>`;
   }
-  document.getElementById('sm-semana').innerHTML = semanaHtml;
+  document.getElementById('sm-semana').innerHTML = html;
 }
 
-const solicitudesDemo = [
-  { nombre:'ANA GARCIA', ini:'AG', tipo:'Cambio de turno', detalle:'Tarde 16 ene ↔ Mañana 18 ene con XIMO', estado:'pendiente', color:'#E1F5EE', colorT:'#085041' },
-  { nombre:'REME BRIONES', ini:'RB', tipo:'Asunto propio', detalle:'Lunes 19 enero', estado:'pendiente', color:'#FAEEDA', colorT:'#633806' },
-  { nombre:'SILVIA', ini:'SI', tipo:'Cambio de turno', detalle:'Noche 20 ene ↔ Tarde 21 ene con NORMA', estado:'aprobada', color:'#EEEDFE', colorT:'#3C3489' },
-];
+// SOLICITUDES
+async function renderSolicitudes() {
+  const { data } = await sb.from('solicitudes')
+    .select('*, solicitante:solicitante_id(nick), contraparte:contraparte_id(nick)')
+    .order('created_at', { ascending: false });
 
-function renderSolicitudes() {
-  const esCoord = currentUser && (currentUser.tipo === 'coordinadora' || currentUser.tipo === 'superadmin');
+  const pendientes = (data||[]).filter(s=>s.estado==='pendiente');
+  const esCoord = currentUser && ['coordinadora','superadmin'].includes(currentUser.rol);
+
   let html = '';
-  solicitudesDemo.filter(s => s.estado === 'pendiente').forEach((s, i) => {
-    html += `<div class="solicitud-item">
-      <div class="sol-avatar" style="background:${s.color};color:${s.colorT}">${s.ini}</div>
-      <div class="sol-info">
-        <div class="sol-nombre">${s.nombre} · <span style="font-weight:400;color:var(--text-muted)">${s.tipo}</span></div>
-        <div class="sol-detalle">${s.detalle}</div>
-        ${esCoord ? `<div class="sol-actions">
-          <button class="btn-accept" onclick="resolverSol(${i},'aprobada')">Aprobar</button>
-          <button class="btn-reject" onclick="resolverSol(${i},'vetada')">Vetar</button>
-        </div>` : '<div class="sol-detalle" style="margin-top:4px">Notificada a coordinadora · pendiente de revisión</div>'}
-      </div>
-    </div>`;
-  });
-  if (!html) html = '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Sin solicitudes pendientes</div>';
+  if (pendientes.length === 0) {
+    html = '<div class="empty-state">Sin solicitudes pendientes</div>';
+  } else {
+    pendientes.forEach(s => {
+      const ini = (s.solicitante?.nick||'').split(' ').map(w=>w[0]).join('').slice(0,2);
+      html += `<div class="solicitud-item">
+        <div class="sol-avatar" style="background:var(--teal-light);color:var(--teal-dark)">${ini}</div>
+        <div class="sol-info">
+          <div class="sol-nombre">${s.solicitante?.nick} · <span style="font-weight:400;color:var(--text-muted)">${s.tipo}</span></div>
+          <div class="sol-detalle">${s.fecha_desde}${s.fecha_hasta!==s.fecha_desde?' → '+s.fecha_hasta:''}</div>
+          ${s.motivo?`<div class="sol-detalle">${s.motivo}</div>`:''}
+          ${esCoord?`<div class="sol-actions">
+            <button class="btn-accept" onclick="resolverSol('${s.id}','aprobada')">Aprobar</button>
+            <button class="btn-reject" onclick="resolverSol('${s.id}','vetada')">Vetar</button>
+          </div>`:'<div class="sol-detalle" style="margin-top:4px">Pendiente de coordinadora</div>'}
+        </div>
+      </div>`;
+    });
+  }
   document.getElementById('sol-pendientes').innerHTML = html;
 
-  let miHtml = '';
-  solicitudesDemo.forEach(s => {
+  const mias = (data||[]).filter(s=>s.solicitante_id===currentUser.id);
+  let miHtml = mias.length===0 ? '<div class="empty-state">No tienes solicitudes</div>' : '';
+  mias.forEach(s => {
     miHtml += `<div class="solicitud-item">
       <div class="sol-info">
         <div class="sol-nombre">${s.tipo}</div>
-        <div class="sol-detalle">${s.detalle}</div>
+        <div class="sol-detalle">${s.fecha_desde}${s.fecha_hasta!==s.fecha_desde?' → '+s.fecha_hasta:''}</div>
       </div>
       <span class="badge-estado badge-${s.estado}">${s.estado}</span>
     </div>`;
@@ -857,59 +582,76 @@ function renderSolicitudes() {
   document.getElementById('sol-fecha-fin').value = hoy;
 }
 
-function resolverSol(i, estado) {
-  solicitudesDemo[i].estado = estado;
+async function resolverSol(id, estado) {
+  await sb.from('solicitudes').update({ estado, resuelta_por: currentUser.id, resuelta_en: new Date().toISOString() }).eq('id', id);
   renderSolicitudes();
 }
 
-function switchSolTab(tab, btn) {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  document.getElementById('sol-pendientes').style.display = tab === 'pendientes' ? 'block' : 'none';
-  document.getElementById('sol-mis').style.display = tab === 'mis' ? 'block' : 'none';
-  document.getElementById('sol-nueva').style.display = tab === 'nueva' ? 'block' : 'none';
-}
-
-function enviarSolicitud() {
+async function enviarSolicitud() {
   const tipo = document.getElementById('sol-tipo').value;
-  const ini = document.getElementById('sol-fecha-ini').value;
-  alert('✓ Solicitud de ' + tipo + ' enviada para ' + ini + '.\nLa coordinadora recibirá la notificación.');
+  const desde = document.getElementById('sol-fecha-ini').value;
+  const hasta = document.getElementById('sol-fecha-fin').value;
+  const motivo = document.getElementById('sol-motivo').value;
+  const contraparte = document.getElementById('sol-contraparte').value;
+  const { error } = await sb.from('solicitudes').insert({
+    solicitante_id: currentUser.id, tipo, fecha_desde: desde, fecha_hasta: hasta,
+    motivo: motivo||null, contraparte_id: contraparte||null
+  });
+  if (!error) { alert('✓ Solicitud enviada correctamente'); renderSolicitudes(); switchSolTab('mis', document.querySelectorAll('.tab-btn')[1]); }
+  else alert('Error al enviar la solicitud. Inténtalo de nuevo.');
 }
 
-function cargarPerfil() {
+function switchSolTab(tab, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('sol-pendientes').style.display = tab==='pendientes'?'block':'none';
+  document.getElementById('sol-mis').style.display = tab==='mis'?'block':'none';
+  document.getElementById('sol-nueva').style.display = tab==='nueva'?'block':'none';
+}
+
+// PERFIL
+async function cargarPerfil() {
   if (!currentUser) return;
-  const ini = currentUser.iniciales;
+  const ini = currentUser.nick.split(' ').map(w=>w[0]).join('').slice(0,2);
   document.getElementById('perfil-avatar').textContent = ini;
   document.getElementById('perfil-nombre').textContent = currentUser.nombre;
-  document.getElementById('perfil-rol').textContent = currentUser.rol + ' · Auxiliar de enfermería';
+  document.getElementById('perfil-rol').textContent = currentUser.rol.charAt(0).toUpperCase()+currentUser.rol.slice(1)+' · Auxiliar de enfermería';
+
+  // Contar turnos de enero desde los datos
+  let M=0, T=0, N=0;
+  const datosEnero = ENERO_DATA[currentUser.nick] || [];
+  datosEnero.forEach(c => {
+    if (c.startsWith('M')||c.startsWith('CD')) M++;
+    else if (c.startsWith('T')||c.startsWith('TC')||c.startsWith('CT')) T++;
+    else if (c==='N'||c==='N1') N++;
+  });
+
   document.getElementById('perfil-stats').innerHTML = `
-    <div class="stat-box"><div class="stat-num" style="color:#1D9E75">9</div><div class="stat-lbl">Mañanas</div></div>
-    <div class="stat-box"><div class="stat-num" style="color:#BA7517">9</div><div class="stat-lbl">Tardes</div></div>
-    <div class="stat-box"><div class="stat-num" style="color:#534AB7">0</div><div class="stat-lbl">Noches</div></div>
-    <div class="stat-box"><div class="stat-num" style="color:#A32D2D">0</div><div class="stat-lbl">HE pend.</div></div>
-  `;
-  document.getElementById('he-lista').innerHTML = `
-    <div class="empty-state" style="padding:16px">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-      Sin horas extra pendientes este mes
-    </div>`;
+    <div class="stat-box"><div class="stat-num" style="color:#1D9E75">${M}</div><div class="stat-lbl">Mañanas</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:#BA7517">${T}</div><div class="stat-lbl">Tardes</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:#534AB7">${N}</div><div class="stat-lbl">Noches</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:#A32D2D">0</div><div class="stat-lbl">HE pend.</div></div>`;
+
+  const { data: heData } = await sb.from('bolsa_he').select('*').eq('trabajadora_id', currentUser.id).eq('destino','pendiente');
+  document.getElementById('he-lista').innerHTML = (!heData||heData.length===0)
+    ? '<div class="empty-state">Sin horas extra pendientes</div>'
+    : heData.map(h=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:0.5px solid var(--border);font-size:12px">
+        <span>${h.fecha} · ${h.origen}</span><span style="font-weight:600;color:var(--red)">${h.horas}h</span>
+      </div>`).join('');
 }
 
-function renderNotificaciones() {
-  const notifs = [
-    { txt: 'Cambio con ANA GARCIA confirmado para el 16 ene', tipo: 'nueva', hora: 'hace 10 min' },
-    { txt: 'Recordatorio: turno mañana 14 ene a las 07:45', tipo: 'nueva', hora: 'hace 2 h' },
-    { txt: 'Tu solicitud de AP del 20 ene está pendiente de aprobación', tipo: 'leida', hora: 'ayer' },
-  ];
-  let html = '';
-  notifs.forEach(n => {
-    html += `<div class="notif-item">
-      <div class="notif-dot notif-${n.tipo}"></div>
-      <div><div class="notif-text">${n.txt}</div><div class="notif-time">${n.hora}</div></div>
-    </div>`;
-  });
-  document.getElementById('notif-lista').innerHTML = html;
+function showPage(nombre) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+nombre).classList.add('active');
+  document.getElementById('nav-'+nombre).classList.add('active');
 }
+
+// Verificar sesión al cargar
+window.addEventListener('load', async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) await cargarSesion();
+});
 </script>
 </body>
 </html>
