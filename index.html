@@ -441,7 +441,7 @@ async function renderCuadrante() {
 
   // Intentar cargar de Supabase
   const { data: dbData } = await sb.from('cuadrante')
-    .select('trabajadora_id, fecha, codigo_turno, incidencia, trabajadoras(nick)')
+    .select('trabajadora_id, fecha, codigo_turno, incidencia, trabajadoras!cuadrante_trabajadora_id_fkey(nick)')
     .gte('fecha', fechaIni).lte('fecha', fechaFin);
 
   if (dbData && dbData.length > 0) {
