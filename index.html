@@ -442,14 +442,15 @@ async function renderCuadrante() {
   // Intentar cargar de Supabase
   const { data: dbData } = await sb.from('cuadrante')
     .select('trabajadora_id, fecha, codigo_turno, incidencia, trabajadoras!cuadrante_trabajadora_id_fkey(nick)')
-    .gte('fecha', fechaIni).lte('fecha', fechaFin);
+    .gte('fecha', fechaIni).lte('fecha', fechaFin)
+    .limit(2000);
 
   if (dbData && dbData.length > 0) {
     dbData.forEach(r => {
-      const nick = r.trabajadoras?.nick || '';
+      const nick = (r.trabajadoras && r.trabajadoras.nick) ? r.trabajadoras.nick : '';
       if (!filas[nick]) filas[nick] = {};
       const dia = parseInt(r.fecha.split('-')[2]);
-      filas[nick][dia] = r.incidencia || r.codigo_turno || '';
+      const cod = r.incidencia || r.codigo_turno || ''; if (cod) filas[nick][dia] = cod;
     });
   }
 
