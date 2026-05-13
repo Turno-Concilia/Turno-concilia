@@ -451,12 +451,6 @@ async function renderCuadrante() {
       const dia = parseInt(r.fecha.split('-')[2]);
       filas[nick][dia] = r.incidencia || r.codigo_turno || '';
     });
-  } else if (mesActual === 0 && anioActual === 2026) {
-    // Usar datos del Excel para enero 2026
-    Object.entries(ENERO_DATA).forEach(([nick, turnos]) => {
-      filas[nick] = {};
-      turnos.forEach((t, i) => { filas[nick][i+1] = t; });
-    });
   }
 
   const hoy = new Date();
@@ -469,7 +463,7 @@ async function renderCuadrante() {
   }
   html += '</tr></thead><tbody>';
 
-  const nicks = trabajadoras.length > 0 ? trabajadoras.map(t=>t.nick) : Object.keys(ENERO_DATA);
+  const nicks = trabajadoras.map(t=>t.nick);
   nicks.forEach(nick => {
     const esMia = currentUser && currentUser.nick === nick;
     html += `<tr${esMia?' class="fila-propia"':''}>`;
@@ -618,9 +612,18 @@ async function cargarPerfil() {
   document.getElementById('perfil-rol').textContent = currentUser.rol.charAt(0).toUpperCase()+currentUser.rol.slice(1)+' · Auxiliar de enfermería';
 
   // Contar turnos de enero desde los datos
+  // Contar turnos del mes actual desde Supabase
+  const hoy = new Date();
+  const mesIni = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-01`;
+  const mesFin = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-${String(new Date(hoy.getFullYear(),hoy.getMonth()+1,0).getDate()).padStart(2,'0')}`;
+  const { data: statData } = await sb.from('cuadrante')
+    .select('codigo_turno, incidencia')
+    .eq('trabajadora_id', currentUser.id)
+    .gte('fecha', mesIni).lte('fecha', mesFin);
+
   let M=0, T=0, N=0;
-  const datosEnero = ENERO_DATA[currentUser.nick] || [];
-  datosEnero.forEach(c => {
+  (statData||[]).forEach(r => {
+    const c = r.incidencia || r.codigo_turno || '';
     if (c.startsWith('M')||c.startsWith('CD')) M++;
     else if (c.startsWith('T')||c.startsWith('TC')||c.startsWith('CT')) T++;
     else if (c==='N'||c==='N1') N++;
