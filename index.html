@@ -409,7 +409,7 @@ async function iniciarApp() {
 }
 
 async function cargarTrabajadoras() {
-  const { data } = await sb.from('trabajadoras').select('id,nick,nombre,rol').eq('activa', true).order('nick');
+  const { data } = await sb.from('trabajadoras').select('id,nick,nombre,rol').eq('activa', true).eq('en_cuadrante', true).order('nick');
   if (data) {
     trabajadoras = data;
     const sel = document.getElementById('sol-contraparte');
