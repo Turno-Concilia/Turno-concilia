@@ -187,19 +187,55 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <input class="form-input" type="password" id="login-pass" placeholder="••••••••">
   </div>
   <button class="btn-primary" onclick="doLogin()">Entrar</button>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('login-pass').addEventListener('keydown', e => {
+        if (e.key === 'Enter') doLogin();
+      });
+    });
+  </script>
   <div id="login-error" class="login-error" style="display:none"></div>
   <div class="login-demo">
-    <div style="margin-bottom:6px">— Acceso demo —</div>
-    <button class="demo-btn" onclick="loginDemo('superadmin')">
-      <span class="demo-badge" style="background:#EEEDFE;color:#3C3489">Superadmin</span>Admin General
-    </button>
-    <button class="demo-btn" onclick="loginDemo('coordinadora')">
-      <span class="demo-badge" style="background:#E1F5EE;color:#085041">Coordinadora</span>Coordinadora
-    </button>
-    <button class="demo-btn" onclick="loginDemo('auxiliar')">
-      <span class="demo-badge" style="background:#FAEEDA;color:#633806">Auxiliar</span>INMA SOLER
-    </button>
+    <div style="margin-bottom:6px;font-size:11px;color:var(--text-muted)">— Acceso demo (solo para pruebas) —</div>
+    <div style="display:flex;gap:6px;max-width:360px;width:100%">
+      <button class="demo-btn" style="flex:1;justify-content:center" onclick="loginDemo('superadmin')">
+        <span class="demo-badge" style="background:#EEEDFE;color:#3C3489">Admin</span>
+      </button>
+      <button class="demo-btn" style="flex:1;justify-content:center" onclick="loginDemo('coordinadora')">
+        <span class="demo-badge" style="background:#E1F5EE;color:#085041">Coord.</span>
+      </button>
+      <button class="demo-btn" style="flex:1;justify-content:center" onclick="loginDemo('auxiliar')">
+        <span class="demo-badge" style="background:#FAEEDA;color:#633806">Auxiliar</span>
+      </button>
+    </div>
   </div>
+</div>
+
+<!-- CAMBIO DE CONTRASEÑA (primera vez) -->
+<div id="page-cambio-pass" style="display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:32px 24px;background:white">
+  <svg width="56" height="56" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg" style="margin-bottom:20px">
+    <defs><clipPath id="cpx"><rect width="80" height="80" rx="18"/></clipPath></defs>
+    <g clip-path="url(#cpx)">
+      <rect x="0" y="0" width="40" height="80" fill="#0C447C"/>
+      <rect x="40" y="0" width="40" height="80" fill="#185FA5"/>
+    </g>
+    <circle cx="16" cy="18" r="6" fill="#B5D4F4"/>
+    <path d="M 4 38 A 12 12 0 0 1 28 38 Z" fill="#B5D4F4"/>
+    <path d="M 70 12 A 7 7 0 1 1 58 18 A 4.5 4.5 0 1 0 70 12 Z" fill="white"/>
+    <path d="M 52 38 A 12 12 0 0 1 76 38 Z" fill="white"/>
+  </svg>
+  <div style="font-size:22px;font-weight:700;margin-bottom:6px">Bienvenida</div>
+  <div style="font-size:13px;color:#888;margin-bottom:28px;text-align:center">Elige tu contraseña para acceder a Turno Concilia</div>
+  <div class="form-group">
+    <label class="form-label">Nueva contraseña</label>
+    <input class="form-input" type="password" id="nueva-pass" placeholder="Mínimo 8 caracteres">
+  </div>
+  <div class="form-group">
+    <label class="form-label">Repite la contraseña</label>
+    <input class="form-input" type="password" id="nueva-pass2" placeholder="Repite la contraseña">
+  </div>
+  <div id="cambio-pass-error" style="display:none;color:#A32D2D;font-size:12px;margin-bottom:8px;max-width:360px;text-align:center"></div>
+  <button class="btn-primary" onclick="guardarNuevaPassword()">Guardar y entrar</button>
 </div>
 
 <!-- APP -->
@@ -417,12 +453,21 @@ function claseColor(cod) {
 
 // LOGIN
 async function doLogin() {
-  const email = document.getElementById('login-email').value;
+  const email = document.getElementById('login-email').value.trim();
   const pass = document.getElementById('login-pass').value;
   const err = document.getElementById('login-error');
+  const btn = document.querySelector('#page-login .btn-primary');
   err.style.display = 'none';
+  btn.textContent = 'Entrando...';
+  btn.disabled = true;
   const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
-  if (error) { err.textContent = 'Email o contraseña incorrectos'; err.style.display = 'block'; return; }
+  btn.textContent = 'Entrar';
+  btn.disabled = false;
+  if (error) {
+    err.textContent = 'Email o contraseña incorrectos. Comprueba tus datos.';
+    err.style.display = 'block';
+    return;
+  }
   await cargarSesion();
 }
 
@@ -439,8 +484,17 @@ async function loginDemo(tipo) {
 async function cargarSesion() {
   const { data: { user } } = await sb.auth.getUser();
   if (!user) return;
-  const { data } = await sb.from('trabajadoras').select('*').eq('auth_id', user.id).single();
-  if (data) { currentUser = data; iniciarApp(); }
+  const { data, error } = await sb.from('trabajadoras').select('*').eq('auth_id', user.id).single();
+  if (data) {
+    currentUser = data;
+    iniciarApp();
+  } else {
+    // Usuario Auth existe pero no está vinculado a trabajadoras
+    const err = document.getElementById('login-error');
+    err.textContent = 'Tu usuario no está configurado todavía. Contacta con la administración.';
+    err.style.display = 'block';
+    await sb.auth.signOut();
+  }
 }
 
 function doLogout() {
@@ -748,9 +802,51 @@ async function reclamarDia(nick, dia) {
 
 // Verificar sesión al cargar
 window.addEventListener('load', async () => {
-  const { data: { session } } = await sb.auth.getSession();
-  if (session) await cargarSesion();
+  // Manejar callback de invitación/reset desde email
+  const hash = window.location.hash;
+  if (hash && (hash.includes('access_token') || hash.includes('type=invite') || hash.includes('type=recovery'))) {
+    const { data: { session }, error } = await sb.auth.getSession();
+    if (session) {
+      // Pedir nueva contraseña si viene de invitación
+      const tipo = hash.includes('type=invite') || hash.includes('type=recovery') ? 'invite' : null;
+      if (tipo) {
+        mostrarCambioPassword();
+        return;
+      }
+      await cargarSesion();
+    }
+  } else {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) await cargarSesion();
+  }
 });
+
+function mostrarCambioPassword() {
+  document.getElementById('page-login').style.display = 'none';
+  document.getElementById('page-cambio-pass').style.display = 'flex';
+}
+
+async function guardarNuevaPassword() {
+  const pass1 = document.getElementById('nueva-pass').value;
+  const pass2 = document.getElementById('nueva-pass2').value;
+  const err = document.getElementById('cambio-pass-error');
+  err.style.display = 'none';
+  if (pass1.length < 8) {
+    err.textContent = 'La contraseña debe tener al menos 8 caracteres.';
+    err.style.display = 'block'; return;
+  }
+  if (pass1 !== pass2) {
+    err.textContent = 'Las contraseñas no coinciden.';
+    err.style.display = 'block'; return;
+  }
+  const { error } = await sb.auth.updateUser({ password: pass1 });
+  if (error) {
+    err.textContent = 'Error al guardar. Inténtalo de nuevo.';
+    err.style.display = 'block'; return;
+  }
+  document.getElementById('page-cambio-pass').style.display = 'none';
+  await cargarSesion();
+}
 </script>
 </body>
 </html>
