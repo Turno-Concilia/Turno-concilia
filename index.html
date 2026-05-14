@@ -506,7 +506,8 @@ async function renderCuadrante() {
       if (!filas[nick]) filas[nick] = {};
       const dia = parseInt(r.fecha.split('-')[2]);
       if (r.incidencia === 'SA') {
-        filas[nick][dia] = { cod: 'SA', turno: r.turno_original || '?' };
+        const turnoReal = r.codigo_turno || r.turno_original || '?';
+        filas[nick][dia] = { cod: 'SA', turno: turnoReal };
       } else {
         const cod = r.incidencia || r.codigo_turno || '';
         if (cod) filas[nick][dia] = { cod, turno: cod };
