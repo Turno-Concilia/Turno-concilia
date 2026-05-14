@@ -96,6 +96,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .t-DH{background:var(--blue-light);color:var(--blue)}
 .t-IT{background:var(--red-light);color:var(--red)}
 .t-VAC{background:var(--green-light);color:var(--green)}
+.t-SA{background:#FAEEDA;color:#854F0B;border:1px dashed #BA7517;cursor:pointer}
 .col-findes{background:#FAFAF8}
 .col-hoy{background:#FFF8E6!important}
 
@@ -255,6 +256,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="leyenda-item"><div class="leyenda-dot" style="background:#FBEAF0;border:1px solid #993556"></div>Tarde CD</div>
       <div class="leyenda-item"><div class="leyenda-dot" style="background:#EEEDFE;border:1px solid #534AB7"></div>Noche</div>
       <div class="leyenda-item"><div class="leyenda-dot" style="background:#FCEBEB;border:1px solid #A32D2D"></div>HE/IT</div>
+      <div class="leyenda-item"><div class="leyenda-dot" style="background:#FAEEDA;border:1px dashed #BA7517"></div>Sin asignar</div>
     </div>
     <div id="cuadrante-container"><div class="loading"><div class="spinner"></div>Cargando cuadrante...</div></div>
   </div>
@@ -402,6 +404,7 @@ let trabajadoras = [];
 let cuadranteCache = {};
 
 function claseColor(cod) {
+  if (cod === 'SA') return 't-SA';
   if (!cod) return 't-L';
   if (cod.startsWith('M')) return 't-M';
   if (cod.startsWith('CD')) return 't-CD';
@@ -460,7 +463,7 @@ async function iniciarApp() {
 }
 
 async function cargarTrabajadoras() {
-  const { data } = await sb.from('trabajadoras').select('id,nick,nombre,rol').eq('activa', true).eq('en_cuadrante', true).order('nick');
+  const { data } = await sb.from('trabajadoras').select('id,nick,nombre,rol,puesto_compartido').eq('activa', true).eq('en_cuadrante', true).order('nick');
   if (data) {
     trabajadoras = data;
     const sel = document.getElementById('sol-contraparte');
@@ -524,7 +527,11 @@ async function renderCuadrante() {
       const cod = (filas[nick] && filas[nick][d]) || '';
       const cls = claseColor(cod);
       html += `<td class="${esFinde(anioActual,mesActual,d)?'col-findes':''} ${esHoy(d)?'col-hoy':''}">`;
-      if (cod) html += `<span class="turno-pill ${cls}">${cod}</span>`;
+      const esPuestoCompartido = currentUser && currentUser.puesto_compartido;
+      const esSA = cod === 'SA';
+      const label = esSA ? '?' : cod;
+      const onclick = (esSA && esPuestoCompartido && esMia) ? ` onclick="reclamarDia('${nick}',${d})" title="Reclamar este día"` : '';
+      if (cod) html += `<span class="turno-pill ${cls}"${onclick}>${label}</span>`;
       html += '</td>';
     }
     html += '</tr>';
@@ -700,6 +707,35 @@ function showPage(nombre) {
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+nombre).classList.add('active');
   document.getElementById('nav-'+nombre).classList.add('active');
+}
+
+// RECLAMAR DÍA (puesto compartido)
+async function reclamarDia(nick, dia) {
+  if (!confirm(`¿Confirmas que trabajarás el día ${dia}?`)) return;
+  const fecha = `${anioActual}-${String(mesActual+1).padStart(2,"0")}-${String(dia).padStart(2,"0")}`;
+  // Obtener el turno original de ese día
+  const { data } = await sb.from("cuadrante")
+    .select("turno_original, id")
+    .eq("trabajadora_id", currentUser.id)
+    .eq("fecha", fecha)
+    .single();
+  if (!data) return;
+  // Asignar a quien reclama: quitar SA
+  await sb.from("cuadrante").update({ incidencia: null, codigo_turno: data.turno_original })
+    .eq("id", data.id);
+  // Marcar el mismo día de la compañera como libre (L)
+  const { data: companera } = await sb.from("trabajadoras")
+    .select("id")
+    .eq("puesto_compartido", currentUser.puesto_compartido)
+    .neq("id", currentUser.id)
+    .single();
+  if (companera) {
+    await sb.from("cuadrante").update({ incidencia: "L", codigo_turno: null })
+      .eq("trabajadora_id", companera.id)
+      .eq("fecha", fecha);
+  }
+  alert(`✓ Día ${dia} reclamado correctamente`);
+  renderCuadrante();
 }
 
 // Verificar sesión al cargar
