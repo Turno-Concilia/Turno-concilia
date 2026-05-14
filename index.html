@@ -495,16 +495,22 @@ async function renderCuadrante() {
 
   // Intentar cargar de Supabase
   const { data: dbData } = await sb.from('cuadrante')
-    .select('trabajadora_id, fecha, codigo_turno, incidencia, trabajadoras!cuadrante_trabajadora_id_fkey(nick)')
+    .select('trabajadora_id, fecha, codigo_turno, incidencia, turno_original, trabajadoras!cuadrante_trabajadora_id_fkey(nick)')
     .gte('fecha', fechaIni).lte('fecha', fechaFin)
     .limit(2000);
 
   if (dbData && dbData.length > 0) {
     dbData.forEach(r => {
       const nick = (r.trabajadoras && r.trabajadoras.nick) ? r.trabajadoras.nick : '';
+      if (!nick) return;
       if (!filas[nick]) filas[nick] = {};
       const dia = parseInt(r.fecha.split('-')[2]);
-      const cod = r.incidencia || r.codigo_turno || ''; if (cod) filas[nick][dia] = cod;
+      if (r.incidencia === 'SA') {
+        filas[nick][dia] = { cod: 'SA', turno: r.turno_original || '?' };
+      } else {
+        const cod = r.incidencia || r.codigo_turno || '';
+        if (cod) filas[nick][dia] = { cod, turno: cod };
+      }
     });
   }
 
@@ -524,12 +530,13 @@ async function renderCuadrante() {
     html += `<tr${esMia?' class="fila-propia"':''}>`;
     html += `<td class="nombre-cel">${nick}</td>`;
     for (let d=1; d<=total; d++) {
-      const cod = (filas[nick] && filas[nick][d]) || '';
+      const celda = (filas[nick] && filas[nick][d]) || null;
+      const cod = celda ? celda.cod : '';
+      const label = celda ? celda.turno : '';
       const cls = claseColor(cod);
       html += `<td class="${esFinde(anioActual,mesActual,d)?'col-findes':''} ${esHoy(d)?'col-hoy':''}">`;
       const esPuestoCompartido = currentUser && currentUser.puesto_compartido;
       const esSA = cod === 'SA';
-      const label = esSA ? '?' : cod;
       const onclick = (esSA && esPuestoCompartido && esMia) ? ` onclick="reclamarDia('${nick}',${d})" title="Reclamar este día"` : '';
       if (cod) html += `<span class="turno-pill ${cls}"${onclick}>${label}</span>`;
       html += '</td>';
