@@ -537,8 +537,12 @@ async function iniciarApp() {
   document.getElementById('app-shell').style.display = 'block';
   document.getElementById('topbar-user').textContent = currentUser.nick;
   // Mostrar pestaña admin solo para superadmin
-  if (currentUser.rol === 'superadmin') {
-    document.getElementById('nav-admin').style.display = 'flex';
+  const navAdmin = document.getElementById('nav-admin');
+  if (navAdmin && currentUser && currentUser.rol === 'superadmin') {
+    navAdmin.style.display = 'flex';
+    navAdmin.style.removeProperty('display');
+    navAdmin.removeAttribute('style');
+    navAdmin.style.display = 'flex';
   }
   await cargarTrabajadoras();
   renderCuadrante();
