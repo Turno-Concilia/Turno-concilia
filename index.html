@@ -688,9 +688,15 @@ async function renderCuadrante() {
   let filas = {};
 
   // Intentar cargar de Supabase
+  // Obtener IDs de trabajadoras de la categoría actual
+  const idsCategoria = trabajadoras
+    .filter(t => t.categoria === categoriaActual)
+    .map(t => t.id);
+
   const { data: dbData } = await sb.from('cuadrante')
     .select('trabajadora_id, fecha, codigo_turno, incidencia, turno_original, trabajadoras!cuadrante_trabajadora_id_fkey(nick,categoria)')
     .gte('fecha', fechaIni).lte('fecha', fechaFin)
+    .in('trabajadora_id', idsCategoria)
     .limit(2000);
 
   if (dbData && dbData.length > 0) {
