@@ -396,17 +396,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
               </select>
             </div>
           </div>
-          <!-- Solo en parcial: horario y hora de relevo -->
+          <!-- Solo en parcial -->
           <div id="parcial-bloque-b" style="display:none;margin-top:10px">
-            <div id="horario-turno-b" style="font-size:11px;color:var(--blue);margin-bottom:8px">Selecciona su turno para ver el horario</div>
-            <div class="form-group" style="margin-bottom:0">
-              <label class="form-label">Yo trabajo hasta las</label>
-              <input type="time" class="form-input" id="sol-hora-fin">
+            <div id="horario-turno-b" style="font-size:11px;color:var(--blue);margin-bottom:8px"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">Desde las</label>
+                <input type="time" class="form-input" id="sol-hora-ini-b2">
+              </div>
+              <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">Hasta las</label>
+                <input type="time" class="form-input" id="sol-hora-fin-b2">
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- ELLA ME DEVUELVE: mi día/turno que ella va a cubrir -->
+        <!-- ELLA ME HACE / DEVUELVE: mi día/turno que ella va a cubrir -->
         <div id="campos-b" style="background:var(--teal-light);border-radius:var(--radius);padding:12px;margin-bottom:10px">
           <div style="font-size:12px;font-weight:600;color:var(--teal-dark);margin-bottom:4px" id="label-campos-b">Ella me devuelve...</div>
           <div style="font-size:11px;color:var(--teal-dark);opacity:.8;margin-bottom:8px" id="sublabel-campos-b">El día mío que ella va a cubrir</div>
@@ -422,12 +428,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
               </select>
             </div>
           </div>
-          <!-- Solo en parcial: horario y hora de entrada -->
+          <!-- Solo en parcial -->
           <div id="parcial-bloque-a" style="display:none;margin-top:10px">
-            <div id="horario-turno-a" style="font-size:11px;color:var(--teal-dark);margin-bottom:8px">Selecciona tu turno para ver el horario</div>
-            <div class="form-group" style="margin-bottom:0">
-              <label class="form-label">Ella entra a las</label>
-              <input type="time" class="form-input" id="sol-hora-ini-b">
+            <div id="horario-turno-a" style="font-size:11px;color:var(--teal-dark);margin-bottom:8px"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">Desde las</label>
+                <input type="time" class="form-input" id="sol-hora-ini-a2">
+              </div>
+              <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">Hasta las</label>
+                <input type="time" class="form-input" id="sol-hora-fin">
+              </div>
             </div>
           </div>
         </div>
@@ -1070,16 +1082,26 @@ async function cargarTurnosDia(fecha, selectId, trabajadoraId) {
   }
   sel.innerHTML = `<option value="${turno}">${turno}</option>`;
 
-  // Actualizar display de horario en modo parcial
+  // Actualizar display de horario en modo parcial y rellenar horas automáticamente
   const horario = getHorarioTurno(turno);
   if (horario) {
+    const [horaIni, horaFin2] = horario.split(' — ');
     if (selectId === 'sol-turno-b') {
       const el = document.getElementById('horario-turno-b');
       if (el) el.textContent = `Turno ${turno} · ${horario} h`;
+      // Rellenar horas automáticamente
+      const ini = document.getElementById('sol-hora-ini-b2');
+      const fin = document.getElementById('sol-hora-fin-b2');
+      if (ini) ini.value = horaIni;
+      if (fin) fin.value = horaFin2;
     }
     if (selectId === 'sol-turno-a') {
       const el = document.getElementById('horario-turno-a');
       if (el) el.textContent = `Turno ${turno} · ${horario} h`;
+      const ini = document.getElementById('sol-hora-ini-a2');
+      const fin = document.getElementById('sol-hora-fin');
+      if (ini) ini.value = horaIni;
+      if (fin) fin.value = horaFin2;
     }
   }
 }
@@ -1118,16 +1140,21 @@ function inicializarEventosSolicitudes() {
 }
 
 function calcularHorasParcial() {
+  // sol-hora-fin = hasta cuando yo trabajo (fin del bloque A, inicio del bloque B)
   const horaFin = document.getElementById('sol-hora-fin').value;
-  const horaIni = document.getElementById('sol-hora-ini-b').value;
   const div = document.getElementById('horas-calculo');
-  if (!horaFin || !horaIni) { div.style.display = 'none'; return; }
+  if (!horaFin) { div.style.display = 'none'; return; }
 
-  const [h1, m1] = horaFin.split(':').map(Number);
-  const [h2, m2] = horaIni.split(':').map(Number);
-  const minFin = h1 * 60 + m1;
-  const minIni = h2 * 60 + m2;
-  const diff = Math.abs(minIni - minFin) / 60;
+  // Calcular horas basándose en la hora de inicio del turno de B vs hora de relevo
+  const horarioB = document.getElementById('horario-turno-b')?.textContent || '';
+  const match = horarioB.match(/(\d{2}:\d{2})/);
+  if (!match) { div.style.display = 'none'; return; }
+
+  const [h1, m1] = match[1].split(':').map(Number);
+  const [h2, m2] = horaFin.split(':').map(Number);
+  const minIni = h1 * 60 + m1;
+  const minFin = h2 * 60 + m2;
+  const diff = (minFin - minIni) / 60;
 
   if (diff < 1) {
     div.style.display = 'block';
