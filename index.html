@@ -695,8 +695,12 @@ async function renderCuadrante() {
 
   if (dbData && dbData.length > 0) {
     dbData.forEach(r => {
-      const nick = (r.trabajadoras && r.trabajadoras.nick) ? r.trabajadoras.nick : '';
+      const tData = r.trabajadoras;
+      const nick = tData ? tData.nick : '';
       if (!nick) return;
+      // Solo incluir trabajadoras de la categoría actual
+      const trabInfo = trabajadoras.find(t => t.nick === nick);
+      if (trabInfo && trabInfo.categoria !== categoriaActual) return;
       if (!filas[nick]) filas[nick] = {};
       const dia = parseInt(r.fecha.split('-')[2]);
       if (r.incidencia === 'SA') {
@@ -712,7 +716,8 @@ async function renderCuadrante() {
   const hoy = new Date();
   const esHoy = (d) => hoy.getFullYear()===anioActual && hoy.getMonth()===mesActual && hoy.getDate()===d;
 
-  let html = '<div class="cuadrante-wrap"><table class="cuadrante-tabla"><thead><tr><th class="col-nombre">Auxiliar</th>';
+  const headerLabel = categoriaActual === 'enfermera' ? 'Enfermera' : 'Auxiliar';
+  let html = `<div class="cuadrante-wrap"><table class="cuadrante-tabla"><thead><tr><th class="col-nombre">${headerLabel}</th>`;
   for (let d=1; d<=total; d++) {
     const ds = diaSemana(anioActual, mesActual, d);
     html += `<th class="${esFinde(anioActual,mesActual,d)?'col-findes':''} ${esHoy(d)?'col-hoy':''}">${DIAS_SEMANA[ds]}<br>${d}</th>`;
@@ -720,12 +725,9 @@ async function renderCuadrante() {
   html += '</tr></thead><tbody>';
 
   // Filtrar trabajadoras por categoría seleccionada
-  const nicks = trabajadoras.filter(t => t.categoria === categoriaActual).map(t => t.nick);
-  // También filtrar filas del cuadrante por categoría
-  Object.keys(filas).forEach(nick => {
-    const t = trabajadoras.find(w => w.nick === nick);
-    if (t && t.categoria !== categoriaActual) delete filas[nick];
-  });
+  const nicksCategoria = trabajadoras.filter(t => t.categoria === categoriaActual).map(t => t.nick);
+  // Solo mostrar filas de la categoría activa
+  const nicks = nicksCategoria;
   nicks.forEach(nick => {
     const esMia = currentUser && currentUser.nick === nick;
     html += `<tr${esMia?' class="fila-propia"':''}>`;
