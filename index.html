@@ -377,26 +377,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           </select>
         </div>
 
-        <!-- MI TURNO -->
+        <!-- YO LE HAGO: su día/turno que yo voy a cubrir -->
         <div style="background:var(--blue-light);border-radius:var(--radius);padding:12px;margin-bottom:10px">
-          <div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:8px">Yo le hago...</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="form-group" style="margin-bottom:0">
-              <label class="form-label">Mi día</label>
-              <input type="date" class="form-input" id="sol-fecha-ini">
-            </div>
-            <div class="form-group" style="margin-bottom:0">
-              <label class="form-label">Mi turno</label>
-              <select class="form-input" id="sol-turno-a">
-                <option value="">Selecciona fecha</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <!-- TURNO DE B (solo cambio completo) -->
-        <div id="campos-b" style="background:var(--teal-light);border-radius:var(--radius);padding:12px;margin-bottom:10px">
-          <div style="font-size:12px;font-weight:600;color:var(--teal-dark);margin-bottom:8px">Ella me devuelve...</div>
+          <div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:4px">Yo le hago...</div>
+          <div style="font-size:11px;color:var(--blue);opacity:.8;margin-bottom:8px">El día de ella que yo voy a cubrir</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div class="form-group" style="margin-bottom:0">
               <label class="form-label">Su día</label>
@@ -405,6 +389,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
             <div class="form-group" style="margin-bottom:0">
               <label class="form-label">Su turno</label>
               <select class="form-input" id="sol-turno-b">
+                <option value="">Selecciona fecha</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- ELLA ME DEVUELVE: mi día/turno que ella va a cubrir -->
+        <div id="campos-b" style="background:var(--teal-light);border-radius:var(--radius);padding:12px;margin-bottom:10px">
+          <div style="font-size:12px;font-weight:600;color:var(--teal-dark);margin-bottom:4px">Ella me devuelve...</div>
+          <div style="font-size:11px;color:var(--teal-dark);opacity:.8;margin-bottom:8px">El día mío que ella va a cubrir</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label">Mi día</label>
+              <input type="date" class="form-input" id="sol-fecha-ini">
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label">Mi turno</label>
+              <select class="form-input" id="sol-turno-a">
                 <option value="">Selecciona fecha</option>
               </select>
             </div>
@@ -876,34 +878,28 @@ async function cargarTurnosDia(fecha, selectId, trabajadoraId) {
 
 // Cuando cambia la fecha de A, carga su turno
 function inicializarEventosSolicitudes() {
-  document.getElementById('sol-fecha-ini').addEventListener('change', e => {
-    if (currentUser && currentUser.id) {
-      cargarTurnosDia(e.target.value, 'sol-turno-a', currentUser.id);
-    }
-    if (tipoCambioActual === 'parcial') calcularHorasParcial();
-  });
-
+  // sol-fecha-b = su día (el que yo le hago) → carga turno de la compañera
   document.getElementById('sol-fecha-b').addEventListener('change', e => {
     const contraparteId = document.getElementById('sol-contraparte').value;
     if (contraparteId && e.target.value) {
       cargarTurnosDia(e.target.value, 'sol-turno-b', contraparteId);
     }
+    if (tipoCambioActual === 'parcial') calcularHorasParcial();
   });
 
+  // sol-fecha-ini = mi día (el que ella me devuelve) → carga mi turno
+  document.getElementById('sol-fecha-ini').addEventListener('change', e => {
+    if (currentUser && currentUser.id && e.target.value) {
+      cargarTurnosDia(e.target.value, 'sol-turno-a', currentUser.id);
+    }
+  });
+
+  // Al cambiar compañera, recargar su turno
   document.getElementById('sol-contraparte').addEventListener('change', e => {
     const fechaB = document.getElementById('sol-fecha-b').value;
     const contraparteId = e.target.value;
-    if (contraparteId) {
-      if (fechaB) {
-        cargarTurnosDia(fechaB, 'sol-turno-b', contraparteId);
-      } else {
-        // Si no hay fecha de B, usar la misma que A como sugerencia
-        const fechaA = document.getElementById('sol-fecha-ini').value;
-        if (fechaA) {
-          document.getElementById('sol-fecha-b').value = fechaA;
-          cargarTurnosDia(fechaA, 'sol-turno-b', contraparteId);
-        }
-      }
+    if (contraparteId && fechaB) {
+      cargarTurnosDia(fechaB, 'sol-turno-b', contraparteId);
     }
   });
 
@@ -1004,6 +1000,7 @@ function switchSolTab(tab, btn) {
     const hoy = new Date().toISOString().split('T')[0];
     document.getElementById('sol-fecha-ini').value = hoy;
     document.getElementById('sol-fecha-b').value = hoy;
+    // sol-fecha-ini = mi día → cargo mi turno en sol-turno-a
     if (currentUser && currentUser.id) {
       cargarTurnosDia(hoy, 'sol-turno-a', currentUser.id);
     }
