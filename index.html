@@ -761,11 +761,16 @@ function renderSM() {
 // SOLICITUDES
 async function renderSolicitudes() {
   const { data } = await sb.from('solicitudes')
-    .select('*, solicitante:solicitante_id(nick), contraparte:contraparte_id(nick)')
+    .select('*, solicitante:solicitante_id(nick,id), contraparte:contraparte_id(nick,id)')
     .order('created_at', { ascending: false });
 
-  const pendientes = (data||[]).filter(s=>s.estado==='pendiente');
   const esCoord = currentUser && ['coordinadora','superadmin'].includes(currentUser.rol);
+
+  // PENDIENTES: solicitudes donde soy la contraparte (me piden a mí) o soy coordinadora
+  const pendientes = (data||[]).filter(s => {
+    if (esCoord) return ['pendiente','pendiente_aprobacion'].includes(s.estado);
+    return s.contraparte_id === currentUser.id && s.estado === 'pendiente';
+  });
 
   let html = '';
   if (pendientes.length === 0) {
@@ -773,38 +778,197 @@ async function renderSolicitudes() {
   } else {
     pendientes.forEach(s => {
       const ini = (s.solicitante?.nick||'').split(' ').map(w=>w[0]).join('').slice(0,2);
+      const tipoCambioLabel = {
+        completo: '↔ Cambio completo',
+        devolucion: '⏳ Con devolución',
+        parcial: '⏱ Parcial por horas'
+      }[s.tipo_cambio] || s.tipo;
+
+      const detalle = s.tipo_cambio === 'completo'
+        ? `Yo le hago el ${s.fecha_desde_b || '?'} · Ella me devuelve el ${s.fecha_desde}`
+        : s.tipo_cambio === 'parcial'
+        ? `Día ${s.fecha_desde} · ${s.horas_cambio}h`
+        : `Cubre el ${s.fecha_desde_b || s.fecha_desde}`;
+
+      const esMiSolicitud = s.contraparte_id === currentUser.id;
+
       html += `<div class="solicitud-item">
         <div class="sol-avatar" style="background:var(--teal-light);color:var(--teal-dark)">${ini}</div>
         <div class="sol-info">
-          <div class="sol-nombre">${s.solicitante?.nick} · <span style="font-weight:400;color:var(--text-muted)">${s.tipo}</span></div>
-          <div class="sol-detalle">${s.fecha_desde}${s.fecha_hasta!==s.fecha_desde?' → '+s.fecha_hasta:''}</div>
-          ${s.motivo?`<div class="sol-detalle">${s.motivo}</div>`:''}
-          ${esCoord?`<div class="sol-actions">
-            <button class="btn-accept" onclick="resolverSol('${s.id}','aprobada')">Aprobar</button>
-            <button class="btn-reject" onclick="resolverSol('${s.id}','vetada')">Vetar</button>
-          </div>`:'<div class="sol-detalle" style="margin-top:4px">Pendiente de coordinadora</div>'}
+          <div class="sol-nombre">${s.solicitante?.nick} · <span style="font-weight:400;color:var(--text-muted)">${tipoCambioLabel}</span></div>
+          <div class="sol-detalle">${detalle}</div>
+          ${s.motivo?`<div class="sol-detalle" style="font-style:italic">"${s.motivo}"</div>`:''}
+          <div class="sol-actions" style="margin-top:6px">
+            ${esMiSolicitud && !esCoord ? `
+              <button class="btn-accept" onclick="aceptarCambio('${s.id}')">✓ Aceptar</button>
+              <button class="btn-reject" onclick="rechazarCambio('${s.id}')">✗ Rechazar</button>
+            ` : esCoord ? `
+              <button class="btn-accept" onclick="aceptarCambio('${s.id}')">✓ Aprobar</button>
+              <button class="btn-reject" onclick="rechazarCambio('${s.id}')">✗ Vetar</button>
+            ` : '<span style="font-size:11px;color:var(--text-muted)">Pendiente de respuesta</span>'}
+          </div>
         </div>
       </div>`;
     });
   }
-  document.getElementById('sol-pendientes').innerHTML = html;
+  document.getElementById('sol-pendientes').innerHTML = `<div class="card">${html}</div>`;
 
-  const mias = (data||[]).filter(s=>s.solicitante_id===currentUser.id);
-  let miHtml = mias.length===0 ? '<div class="empty-state">No tienes solicitudes</div>' : '';
+  // MIS CAMBIOS: solicitudes que yo he enviado
+  const mias = (data||[]).filter(s => s.solicitante_id === currentUser.id);
+  let miHtml = mias.length === 0 ? '<div class="empty-state">No has enviado solicitudes</div>' : '<div class="card">';
   mias.forEach(s => {
+    const tipoCambioLabel = {
+      completo: '↔ Cambio completo',
+      devolucion: '⏳ Con devolución',
+      parcial: '⏱ Parcial'
+    }[s.tipo_cambio] || s.tipo;
+    const estadoClass = {
+      pendiente: 'badge-pendiente',
+      aprobada: 'badge-aprobada',
+      vetada: 'badge-vetada',
+      cancelada: 'badge-vetada',
+      pendiente_aprobacion: 'badge-pendiente'
+    }[s.estado] || 'badge-pendiente';
+    const estadoLabel = {
+      pendiente: 'Esperando respuesta',
+      aprobada: 'Aceptado ✓',
+      vetada: 'Vetado',
+      cancelada: 'Cancelado',
+      pendiente_aprobacion: 'Pdte. coordinadora'
+    }[s.estado] || s.estado;
+
     miHtml += `<div class="solicitud-item">
       <div class="sol-info">
-        <div class="sol-nombre">${s.tipo}</div>
-        <div class="sol-detalle">${s.fecha_desde}${s.fecha_hasta!==s.fecha_desde?' → '+s.fecha_hasta:''}</div>
+        <div class="sol-nombre">${tipoCambioLabel} · <span style="font-weight:400;color:var(--text-muted)">${s.contraparte?.nick||'—'}</span></div>
+        <div class="sol-detalle">Yo hago el ${s.fecha_desde_b||s.fecha_desde} · Ella hace el ${s.fecha_desde}</div>
       </div>
-      <span class="badge-estado badge-${s.estado}">${s.estado}</span>
+      <span class="badge-estado ${estadoClass}" style="white-space:nowrap;font-size:10px">${estadoLabel}</span>
     </div>`;
   });
+  if (mias.length > 0) miHtml += '</div>';
   document.getElementById('sol-mis').innerHTML = miHtml;
+}
 
-  const hoy = new Date().toISOString().split('T')[0];
-  document.getElementById('sol-fecha-ini').value = hoy;
-  document.getElementById('sol-fecha-fin').value = hoy;
+async function aceptarCambio(solicitudId) {
+  const { data: sol } = await sb.from('solicitudes').select('*').eq('id', solicitudId).single();
+  if (!sol) return;
+
+  // Marcar como aprobada
+  await sb.from('solicitudes').update({
+    estado: 'aprobada',
+    resuelta_por: currentUser.id,
+    resuelta_en: new Date().toISOString()
+  }).eq('id', solicitudId);
+
+  // Aplicar cambio en el cuadrante según tipo
+  if (sol.tipo_cambio === 'completo') {
+    await aplicarCambioCompleto(sol);
+  } else if (sol.tipo_cambio === 'devolucion') {
+    await aplicarCambioDevolucion(sol);
+  } else if (sol.tipo_cambio === 'parcial') {
+    await aplicarCambioParcial(sol);
+  }
+
+  alert('✓ Cambio aceptado y aplicado en el cuadrante.');
+  renderSolicitudes();
+  renderCuadrante();
+}
+
+async function aplicarCambioCompleto(sol) {
+  // Obtener datos del cuadrante de A (solicitante) en su fecha
+  const { data: celdaA } = await sb.from('cuadrante')
+    .select('id, codigo_turno, incidencia')
+    .eq('trabajadora_id', sol.solicitante_id)
+    .eq('fecha', sol.fecha_desde)
+    .single();
+
+  // Obtener datos del cuadrante de B (contraparte) en su fecha
+  const { data: celdaB } = await sb.from('cuadrante')
+    .select('id, codigo_turno, incidencia')
+    .eq('trabajadora_id', sol.contraparte_id)
+    .eq('fecha', sol.fecha_desde_b || sol.fecha_desde)
+    .single();
+
+  if (!celdaA || !celdaB) {
+    alert('Error: no se encontraron los turnos en el cuadrante.');
+    return;
+  }
+
+  // Intercambiar: A pasa a tener el turno de B y viceversa
+  await sb.from('cuadrante').update({
+    codigo_turno: celdaB.codigo_turno,
+    incidencia: celdaB.incidencia,
+    turno_original: celdaA.codigo_turno,
+    modificado_por: currentUser.id,
+    modificado_en: new Date().toISOString()
+  }).eq('id', celdaA.id);
+
+  await sb.from('cuadrante').update({
+    codigo_turno: celdaA.codigo_turno,
+    incidencia: celdaA.incidencia,
+    turno_original: celdaB.codigo_turno,
+    modificado_por: currentUser.id,
+    modificado_en: new Date().toISOString()
+  }).eq('id', celdaB.id);
+}
+
+async function aplicarCambioDevolucion(sol) {
+  // A cubre el turno de B: B pasa a tener el turno de A en la fecha de A
+  const { data: celdaA } = await sb.from('cuadrante')
+    .select('id, codigo_turno, incidencia')
+    .eq('trabajadora_id', sol.solicitante_id)
+    .eq('fecha', sol.fecha_desde)
+    .single();
+
+  if (celdaA) {
+    // Actualizar el cuadrante de B con el turno de A
+    await sb.from('cuadrante').update({
+      codigo_turno: celdaA.codigo_turno,
+      incidencia: null,
+      modificado_por: currentUser.id,
+      modificado_en: new Date().toISOString()
+    }).eq('trabajadora_id', sol.contraparte_id).eq('fecha', sol.fecha_desde);
+
+    // Registrar la deuda en bolsa_deudas
+    await sb.from('bolsa_deudas').insert({
+      acreedora_id: sol.solicitante_id,
+      deudora_id: sol.contraparte_id,
+      horas: celdaA.codigo_turno?.startsWith('N') ? 10.25 : 7.25,
+      fecha_origen: sol.fecha_desde,
+      solicitud_id: sol.id,
+      estado: 'pendiente'
+    });
+  }
+}
+
+async function aplicarCambioParcial(sol) {
+  // Registrar horas parciales en el cuadrante
+  await sb.from('cuadrante').update({
+    hora_inicio_real: sol.hora_inicio_real,
+    hora_fin_real: sol.hora_fin_real,
+    modificado_por: currentUser.id,
+    modificado_en: new Date().toISOString()
+  }).eq('trabajadora_id', sol.solicitante_id).eq('fecha', sol.fecha_desde);
+
+  // Registrar la deuda parcial
+  await sb.from('bolsa_deudas').insert({
+    acreedora_id: sol.contraparte_id,
+    deudora_id: sol.solicitante_id,
+    horas: sol.horas_cambio,
+    fecha_origen: sol.fecha_desde,
+    solicitud_id: sol.id,
+    estado: 'pendiente'
+  });
+}
+
+async function rechazarCambio(solicitudId) {
+  await sb.from('solicitudes').update({
+    estado: 'vetada',
+    resuelta_por: currentUser.id,
+    resuelta_en: new Date().toISOString()
+  }).eq('id', solicitudId);
+  alert('Cambio rechazado.');
+  renderSolicitudes();
 }
 
 async function resolverSol(id, estado) {
