@@ -396,12 +396,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
               </select>
             </div>
           </div>
+          <!-- Solo en parcial: horario y hora de relevo -->
+          <div id="parcial-bloque-b" style="display:none;margin-top:10px">
+            <div id="horario-turno-b" style="font-size:11px;color:var(--blue);margin-bottom:8px">Selecciona su turno para ver el horario</div>
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label">Yo trabajo hasta las</label>
+              <input type="time" class="form-input" id="sol-hora-fin">
+            </div>
+          </div>
         </div>
 
         <!-- ELLA ME DEVUELVE: mi día/turno que ella va a cubrir -->
         <div id="campos-b" style="background:var(--teal-light);border-radius:var(--radius);padding:12px;margin-bottom:10px">
-          <div style="font-size:12px;font-weight:600;color:var(--teal-dark);margin-bottom:4px">Ella me devuelve...</div>
-          <div style="font-size:11px;color:var(--teal-dark);opacity:.8;margin-bottom:8px">El día mío que ella va a cubrir</div>
+          <div style="font-size:12px;font-weight:600;color:var(--teal-dark);margin-bottom:4px" id="label-campos-b">Ella me devuelve...</div>
+          <div style="font-size:11px;color:var(--teal-dark);opacity:.8;margin-bottom:8px" id="sublabel-campos-b">El día mío que ella va a cubrir</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div class="form-group" style="margin-bottom:0">
               <label class="form-label">Mi día</label>
@@ -414,29 +422,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
               </select>
             </div>
           </div>
-        </div>
-
-        <!-- HORAS PARCIALES (solo cambio parcial) -->
-        <div id="campos-parcial" style="display:none">
-          <!-- Hora de relevo bloque A -->
-          <div style="background:var(--blue-light);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:8px">
-            <div id="horario-turno-b" style="font-size:11px;color:var(--blue);margin-bottom:8px">Selecciona su turno para ver el horario</div>
-            <div class="form-group" style="margin-bottom:0">
-              <label class="form-label">Yo trabajo hasta las</label>
-              <input type="time" class="form-input" id="sol-hora-fin">
-            </div>
-          </div>
-          <!-- Hora de relevo bloque B -->
-          <div style="background:var(--teal-light);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:8px">
+          <!-- Solo en parcial: horario y hora de entrada -->
+          <div id="parcial-bloque-a" style="display:none;margin-top:10px">
             <div id="horario-turno-a" style="font-size:11px;color:var(--teal-dark);margin-bottom:8px">Selecciona tu turno para ver el horario</div>
             <div class="form-group" style="margin-bottom:0">
               <label class="form-label">Ella entra a las</label>
               <input type="time" class="form-input" id="sol-hora-ini-b">
             </div>
           </div>
-          <div id="horas-calculo" style="border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;margin-bottom:10px;display:none">
-          </div>
         </div>
+
+        <!-- Cálculo de horas (solo parcial) -->
+        <div id="horas-calculo" style="border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;margin-bottom:10px;display:none"></div>
 
         <div class="form-group">
           <label class="form-label">Motivo (opcional)</label>
