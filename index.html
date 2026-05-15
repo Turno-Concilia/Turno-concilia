@@ -1143,27 +1143,22 @@ function inicializarEventosSolicitudes() {
   });
 
   document.getElementById('sol-hora-fin').addEventListener('change', calcularHorasParcial);
-  document.getElementById('sol-hora-ini-b').addEventListener('change', calcularHorasParcial);
+  document.getElementById('sol-hora-ini-b2')?.addEventListener('change', calcularHorasParcial);
+  document.getElementById('sol-hora-fin-b2')?.addEventListener('change', calcularHorasParcial);
 
 
 }
 
 function calcularHorasParcial() {
-  // sol-hora-fin = hasta cuando yo trabajo (fin del bloque A, inicio del bloque B)
-  const horaFin = document.getElementById('sol-hora-fin').value;
+  const horaIniB = document.getElementById('sol-hora-ini-b2')?.value;
+  const horaFinB = document.getElementById('sol-hora-fin-b2')?.value;
   const div = document.getElementById('horas-calculo');
-  if (!horaFin) { div.style.display = 'none'; return; }
+  if (!horaIniB || !horaFinB) { div.style.display = 'none'; return; }
 
-  // Calcular horas basándose en la hora de inicio del turno de B vs hora de relevo
-  const horarioB = document.getElementById('horario-turno-b')?.textContent || '';
-  const match = horarioB.match(/(\d{2}:\d{2})/);
-  if (!match) { div.style.display = 'none'; return; }
-
-  const [h1, m1] = match[1].split(':').map(Number);
-  const [h2, m2] = horaFin.split(':').map(Number);
-  const minIni = h1 * 60 + m1;
-  const minFin = h2 * 60 + m2;
-  const diff = (minFin - minIni) / 60;
+  const minIni = parseInt(horaIniB.split(':')[0])*60 + parseInt(horaIniB.split(':')[1]);
+  const minFin = parseInt(horaFinB.split(':')[0])*60 + parseInt(horaFinB.split(':')[1]);
+  let diff = (minFin - minIni) / 60;
+  if (diff < 0) diff += 24; // turno de noche cruza medianoche
 
   if (diff < 1) {
     div.style.display = 'block';
@@ -1176,7 +1171,7 @@ function calcularHorasParcial() {
   div.style.display = 'block';
   div.style.background = 'var(--teal-light)';
   div.style.color = 'var(--teal-dark)';
-  div.textContent = `✓ Cambio de ${diff.toFixed(2)} horas. Se registrará en la bolsa de deudas.`;
+  div.textContent = `✓ Yo hago ${diff.toFixed(2)}h de su turno. Se registrará en la bolsa de deudas.`;
 }
 
 async function enviarSolicitud() {
@@ -1210,17 +1205,29 @@ async function enviarSolicitud() {
   }
 
   if (tipoCambioActual === 'parcial') {
-    const horaFin = document.getElementById('sol-hora-fin').value;
-    const horaIni = document.getElementById('sol-hora-ini-b').value;
-    if (!horaFin || !horaIni) { alert('Indica las horas del cambio parcial.'); return; }
-    const diff = Math.abs(
-      (parseInt(horaIni.split(':')[0])*60 + parseInt(horaIni.split(':')[1])) -
-      (parseInt(horaFin.split(':')[0])*60 + parseInt(horaFin.split(':')[1]))
-    ) / 60;
-    if (diff < 1) { alert('El mínimo es 1 hora de diferencia.'); return; }
-    solicitud.hora_inicio_real = horaFin;
-    solicitud.hora_fin_real = horaIni;
-    solicitud.horas_cambio = diff;
+    // Yo le hago: horas del bloque B (su turno)
+    const horaIniB = document.getElementById('sol-hora-ini-b2').value;
+    const horaFinB = document.getElementById('sol-hora-fin-b2').value;
+    // Ella me hace: horas del bloque A (mi turno)
+    const horaIniA = document.getElementById('sol-hora-ini-a2').value;
+    const horaFinA = document.getElementById('sol-hora-fin').value;
+
+    if (!horaIniB || !horaFinB || !horaIniA || !horaFinA) {
+      alert('Indica todas las horas del cambio parcial.'); return;
+    }
+
+    // Calcular horas que yo hago de su turno
+    const minIniB = parseInt(horaIniB.split(':')[0])*60 + parseInt(horaIniB.split(':')[1]);
+    const minFinB = parseInt(horaFinB.split(':')[0])*60 + parseInt(horaFinB.split(':')[1]);
+    // Para noche, horaFin puede ser menor que horaIni (cruza medianoche)
+    let horasB = (minFinB - minIniB) / 60;
+    if (horasB < 0) horasB += 24;
+
+    if (horasB < 1) { alert('El mínimo es 1 hora de diferencia.'); return; }
+
+    solicitud.hora_inicio_real = horaIniB;
+    solicitud.hora_fin_real = horaFinB;
+    solicitud.horas_cambio = parseFloat(horasB.toFixed(2));
   }
 
   const { error } = await sb.from('solicitudes').insert(solicitud);
