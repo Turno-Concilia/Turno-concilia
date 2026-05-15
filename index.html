@@ -615,6 +615,7 @@ async function iniciarApp() {
   renderSM();
   renderSolicitudes();
   cargarPerfil();
+  inicializarEventosSolicitudes();
 }
 
 async function cargarTrabajadoras() {
@@ -841,20 +842,27 @@ async function cargarTurnosDia(fecha, selectId, trabajadoraId) {
 }
 
 // Cuando cambia la fecha de A, carga su turno
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('sol-fecha-ini')?.addEventListener('change', e => {
-    cargarTurnosDia(e.target.value, 'sol-turno-a', currentUser?.id);
+function inicializarEventosSolicitudes() {
+  document.getElementById('sol-fecha-ini').addEventListener('change', e => {
+    if (currentUser && currentUser.id) {
+      cargarTurnosDia(e.target.value, 'sol-turno-a', currentUser.id);
+    }
     if (tipoCambioActual === 'parcial') calcularHorasParcial();
   });
 
-  document.getElementById('sol-fecha-b')?.addEventListener('change', e => {
+  document.getElementById('sol-fecha-b').addEventListener('change', e => {
     const contraparteId = document.getElementById('sol-contraparte').value;
-    cargarTurnosDia(e.target.value, 'sol-turno-b', contraparteId);
+    if (contraparteId) cargarTurnosDia(e.target.value, 'sol-turno-b', contraparteId);
   });
 
-  document.getElementById('sol-hora-fin')?.addEventListener('change', calcularHorasParcial);
-  document.getElementById('sol-hora-ini-b')?.addEventListener('change', calcularHorasParcial);
-});
+  document.getElementById('sol-contraparte').addEventListener('change', e => {
+    const fechaB = document.getElementById('sol-fecha-b').value;
+    if (fechaB && e.target.value) cargarTurnosDia(fechaB, 'sol-turno-b', e.target.value);
+  });
+
+  document.getElementById('sol-hora-fin').addEventListener('change', calcularHorasParcial);
+  document.getElementById('sol-hora-ini-b').addEventListener('change', calcularHorasParcial);
+}
 
 function calcularHorasParcial() {
   const horaFin = document.getElementById('sol-hora-fin').value;
@@ -907,6 +915,8 @@ async function enviarSolicitud() {
     const fechaB = document.getElementById('sol-fecha-b').value;
     const turnoB = document.getElementById('sol-turno-b').value;
     if (!fechaB || !turnoB) { alert('Indica la fecha y turno de tu compañera.'); return; }
+    const turnoA2 = document.getElementById('sol-turno-a').value;
+    if (fechaB === fechaA && turnoB === turnoA2) { alert('No tiene sentido cambiar el mismo turno del mismo día.'); return; }
     solicitud.fecha_desde_b = fechaB;
   }
 
@@ -947,7 +957,9 @@ function switchSolTab(tab, btn) {
     const hoy = new Date().toISOString().split('T')[0];
     document.getElementById('sol-fecha-ini').value = hoy;
     document.getElementById('sol-fecha-b').value = hoy;
-    cargarTurnosDia(hoy, 'sol-turno-a', currentUser?.id);
+    if (currentUser && currentUser.id) {
+      cargarTurnosDia(hoy, 'sol-turno-a', currentUser.id);
+    }
   }
 }
 
