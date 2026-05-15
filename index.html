@@ -1018,8 +1018,11 @@ function selTipoCambio(tipo, btn) {
     if (sublabelB) sublabelB.textContent = 'El día mío que ella va a cubrir';
   }
   document.getElementById('campos-parcial').style.display = tipo === 'parcial' ? 'block' : 'none';
-  document.getElementById('parcial-bloque-a').style.display = tipo === 'parcial' ? 'block' : 'none';
-  document.getElementById('parcial-bloque-b').style.display = tipo === 'parcial' ? 'block' : 'none';
+  // Pequeño retraso para que campos-b esté visible antes de mostrar los bloques parciales
+  setTimeout(() => {
+    document.getElementById('parcial-bloque-a').style.display = tipo === 'parcial' ? 'block' : 'none';
+    document.getElementById('parcial-bloque-b').style.display = tipo === 'parcial' ? 'block' : 'none';
+  }, 50);
   const labelFijo = document.getElementById('label-campos-b');
   const sublabelFijo = document.getElementById('sublabel-campos-b');
   if (labelFijo) labelFijo.textContent = tipo === 'parcial' ? 'Ella me hace...' : 'Ella me devuelve...';
