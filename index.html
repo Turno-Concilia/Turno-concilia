@@ -693,11 +693,21 @@ async function renderCuadrante() {
     .filter(t => t.categoria === categoriaActual)
     .map(t => t.id);
 
-  const { data: dbData } = await sb.from('cuadrante')
-    .select('trabajadora_id, fecha, codigo_turno, incidencia, turno_original, trabajadoras!cuadrante_trabajadora_id_fkey(nick,categoria)')
-    .gte('fecha', fechaIni).lte('fecha', fechaFin)
-    .in('trabajadora_id', idsCategoria)
-    .limit(2000);
+  if (idsCategoria.length === 0) {
+    container.innerHTML = '<div class="empty-state">No hay trabajadoras en esta categoría</div>';
+    return;
+  }
+
+  // Consultar en bloques de 500 para evitar límite
+  let dbData = [];
+  for (let i = 0; i < idsCategoria.length; i += 20) {
+    const chunk = idsCategoria.slice(i, i + 20);
+    const { data: chunkData } = await sb.from('cuadrante')
+      .select('trabajadora_id, fecha, codigo_turno, incidencia, turno_original, trabajadoras!cuadrante_trabajadora_id_fkey(nick,categoria)')
+      .gte('fecha', fechaIni).lte('fecha', fechaFin)
+      .in('trabajadora_id', chunk);
+    if (chunkData) dbData = dbData.concat(chunkData);
+  }
 
   if (dbData && dbData.length > 0) {
     dbData.forEach(r => {
