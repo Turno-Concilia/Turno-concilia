@@ -993,7 +993,18 @@ function selTipoCambio(tipo, btn) {
   btn.classList.add('active');
 
   // Mostrar/ocultar campos según tipo
-  document.getElementById('campos-b').style.display = tipo === 'completo' ? 'grid' : 'none';
+  // Mostrar campos-b tanto en cambio completo como en parcial
+  document.getElementById('campos-b').style.display = (tipo === 'completo' || tipo === 'parcial') ? 'grid' : 'none';
+  // Cambiar el texto del bloque según el tipo
+  const labelB = document.querySelector('#campos-b > div:first-child');
+  const sublabelB = document.querySelector('#campos-b > div:nth-child(2)');
+  if (tipo === 'parcial') {
+    if (labelB) labelB.textContent = 'Ella me hace...';
+    if (sublabelB) sublabelB.textContent = 'El día mío que ella va a cubrir parcialmente';
+  } else {
+    if (labelB) labelB.textContent = 'Ella me devuelve...';
+    if (sublabelB) sublabelB.textContent = 'El día mío que ella va a cubrir';
+  }
   document.getElementById('campos-parcial').style.display = tipo === 'parcial' ? 'block' : 'none';
 
   // Aviso de aprobación
