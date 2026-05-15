@@ -143,6 +143,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .spinner{width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 10px}
 @keyframes spin{to{transform:rotate(360deg)}}
 .empty-state{text-align:center;padding:32px 16px;color:var(--text-muted);font-size:13px}
+.tipo-cambio-btn{flex:1;padding:10px 6px;border:0.5px solid var(--border);border-radius:var(--radius);background:var(--white);cursor:pointer;text-align:center;transition:all .15s}
+.tipo-cambio-btn.active{border-color:var(--blue);background:var(--blue-light)}
+.deuda-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:0.5px solid var(--border)}
+.deuda-item:last-child{border-bottom:none}
+.deuda-saldo{font-size:13px;font-weight:600}
+.deuda-positivo{color:var(--teal-dark)}
+.deuda-negativo{color:var(--red)}
 .admin-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:0.5px solid var(--border)}
 .admin-row:last-child{border-bottom:none}
 .admin-avatar{width:34px;height:34px;border-radius:50%;background:var(--teal-light);color:var(--teal-dark);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0}
@@ -326,48 +333,107 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div class="page" id="page-solicitudes">
     <div class="tabs">
       <button class="tab-btn active" onclick="switchSolTab('pendientes',this)">Pendientes</button>
-      <button class="tab-btn" onclick="switchSolTab('mis',this)">Mis solicitudes</button>
-      <button class="tab-btn" onclick="switchSolTab('nueva',this)">+ Nueva</button>
+      <button class="tab-btn" onclick="switchSolTab('mis',this)">Mis cambios</button>
+      <button class="tab-btn" onclick="switchSolTab('deudas',this)">Deudas</button>
+      <button class="tab-btn" onclick="switchSolTab('nueva',this)">+ Nuevo</button>
     </div>
+
+    <!-- PENDIENTES -->
     <div id="sol-pendientes"></div>
+
+    <!-- MIS CAMBIOS -->
     <div id="sol-mis" style="display:none"></div>
+
+    <!-- DEUDAS ENTRE COMPAÑERAS -->
+    <div id="sol-deudas" style="display:none"></div>
+
+    <!-- NUEVA SOLICITUD -->
     <div id="sol-nueva" style="display:none">
       <div class="card">
-        <div class="form-group">
-          <label class="form-label">Tipo de solicitud</label>
-          <select class="form-input" id="sol-tipo">
-            <option value="cambio">Cambio de turno</option>
-            <option value="AP">Asunto propio (AP)</option>
-            <option value="P">Permiso (P)</option>
-            <option value="VAC">Vacaciones</option>
-            <option value="DH">Devolución de horas (DH)</option>
-          </select>
+        <div class="card-title">Tipo de cambio</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
+          <button class="tipo-cambio-btn active" onclick="selTipoCambio('completo',this)">
+            <div style="font-size:18px">↔️</div>
+            <div style="font-size:11px;margin-top:4px;font-weight:500">Cambio completo</div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:2px">Intercambio de días</div>
+          </button>
+          <button class="tipo-cambio-btn" onclick="selTipoCambio('devolucion',this)">
+            <div style="font-size:18px">⏳</div>
+            <div style="font-size:11px;margin-top:4px;font-weight:500">Con devolución</div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:2px">Te cubre, devuelves después</div>
+          </button>
+          <button class="tipo-cambio-btn" onclick="selTipoCambio('parcial',this)">
+            <div style="font-size:18px">⏱️</div>
+            <div style="font-size:11px;margin-top:4px;font-weight:500">Parcial por horas</div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:2px">Mín. 1 hora</div>
+          </button>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <div class="form-group">
-            <label class="form-label">Fecha inicio</label>
-            <input type="date" class="form-input" id="sol-fecha-ini">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Fecha fin</label>
-            <input type="date" class="form-input" id="sol-fecha-fin">
-          </div>
-        </div>
+
+        <!-- CAMPOS COMUNES -->
         <div class="form-group">
-          <label class="form-label">Compañera (para cambios)</label>
+          <label class="form-label">Compañera</label>
           <select class="form-input" id="sol-contraparte">
             <option value="">Selecciona compañera...</option>
           </select>
         </div>
+
+        <!-- MI TURNO -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="form-group">
+            <label class="form-label">Mi fecha</label>
+            <input type="date" class="form-input" id="sol-fecha-ini">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Mi turno</label>
+            <select class="form-input" id="sol-turno-a">
+              <option value="">Cargando...</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- TURNO DE B (solo cambio completo) -->
+        <div id="campos-b" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="form-group">
+            <label class="form-label">Fecha de ella</label>
+            <input type="date" class="form-input" id="sol-fecha-b">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Su turno</label>
+            <select class="form-input" id="sol-turno-b">
+              <option value="">Selecciona fecha primero</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- HORAS PARCIALES (solo cambio parcial) -->
+        <div id="campos-parcial" style="display:none">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="form-group">
+              <label class="form-label">Yo trabajo hasta</label>
+              <input type="time" class="form-input" id="sol-hora-fin">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Ella entra a las</label>
+              <input type="time" class="form-input" id="sol-hora-ini-b">
+            </div>
+          </div>
+          <div id="horas-calculo" style="background:var(--teal-light);border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;color:var(--teal-dark);margin-bottom:10px;display:none">
+          </div>
+        </div>
+
         <div class="form-group">
           <label class="form-label">Motivo (opcional)</label>
           <input type="text" class="form-input" id="sol-motivo" placeholder="Describe el motivo si lo deseas">
         </div>
+
+        <div id="sol-aviso-aprobacion" style="background:var(--amber-light);border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;color:var(--amber);margin-bottom:10px;display:none">
+          ⚠️ Este tipo de cambio requiere aprobación de la coordinadora.
+        </div>
+
         <button class="btn-primary" onclick="enviarSolicitud()">Enviar solicitud</button>
       </div>
     </div>
   </div>
-
   <!-- PERFIL -->
   <div class="page" id="page-perfil">
     <div class="card">
@@ -737,26 +803,186 @@ async function resolverSol(id, estado) {
   renderSolicitudes();
 }
 
-async function enviarSolicitud() {
-  const tipo = document.getElementById('sol-tipo').value;
-  const desde = document.getElementById('sol-fecha-ini').value;
-  const hasta = document.getElementById('sol-fecha-fin').value;
-  const motivo = document.getElementById('sol-motivo').value;
-  const contraparte = document.getElementById('sol-contraparte').value;
-  const { error } = await sb.from('solicitudes').insert({
-    solicitante_id: currentUser.id, tipo, fecha_desde: desde, fecha_hasta: hasta,
-    motivo: motivo||null, contraparte_id: contraparte||null
+// ============================================================
+// SOLICITUDES DE CAMBIO — LÓGICA COMPLETA
+// ============================================================
+
+let tipoCambioActual = 'completo';
+
+function selTipoCambio(tipo, btn) {
+  tipoCambioActual = tipo;
+  document.querySelectorAll('.tipo-cambio-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  // Mostrar/ocultar campos según tipo
+  document.getElementById('campos-b').style.display = tipo === 'completo' ? 'grid' : 'none';
+  document.getElementById('campos-parcial').style.display = tipo === 'parcial' ? 'block' : 'none';
+
+  // Aviso de aprobación
+  const aviso = document.getElementById('sol-aviso-aprobacion');
+  aviso.style.display = (tipo === 'devolucion' || tipo === 'parcial') ? 'block' : 'none';
+}
+
+async function cargarTurnosDia(fecha, selectId, trabajadoraId) {
+  if (!fecha || !trabajadoraId) return;
+  const { data } = await sb.from('cuadrante')
+    .select('codigo_turno, incidencia, turno_original')
+    .eq('trabajadora_id', trabajadoraId)
+    .eq('fecha', fecha)
+    .single();
+
+  const sel = document.getElementById(selectId);
+  if (!data || (!data.codigo_turno && !data.turno_original)) {
+    sel.innerHTML = '<option value="">Sin turno ese día</option>';
+    return;
+  }
+  const turno = data.codigo_turno || data.turno_original;
+  sel.innerHTML = `<option value="${turno}">${turno}</option>`;
+}
+
+// Cuando cambia la fecha de A, carga su turno
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('sol-fecha-ini')?.addEventListener('change', e => {
+    cargarTurnosDia(e.target.value, 'sol-turno-a', currentUser?.id);
+    if (tipoCambioActual === 'parcial') calcularHorasParcial();
   });
-  if (!error) { alert('✓ Solicitud enviada correctamente'); renderSolicitudes(); switchSolTab('mis', document.querySelectorAll('.tab-btn')[1]); }
-  else alert('Error al enviar la solicitud. Inténtalo de nuevo.');
+
+  document.getElementById('sol-fecha-b')?.addEventListener('change', e => {
+    const contraparteId = document.getElementById('sol-contraparte').value;
+    cargarTurnosDia(e.target.value, 'sol-turno-b', contraparteId);
+  });
+
+  document.getElementById('sol-hora-fin')?.addEventListener('change', calcularHorasParcial);
+  document.getElementById('sol-hora-ini-b')?.addEventListener('change', calcularHorasParcial);
+});
+
+function calcularHorasParcial() {
+  const horaFin = document.getElementById('sol-hora-fin').value;
+  const horaIni = document.getElementById('sol-hora-ini-b').value;
+  const div = document.getElementById('horas-calculo');
+  if (!horaFin || !horaIni) { div.style.display = 'none'; return; }
+
+  const [h1, m1] = horaFin.split(':').map(Number);
+  const [h2, m2] = horaIni.split(':').map(Number);
+  const minFin = h1 * 60 + m1;
+  const minIni = h2 * 60 + m2;
+  const diff = Math.abs(minIni - minFin) / 60;
+
+  if (diff < 1) {
+    div.style.display = 'block';
+    div.style.background = 'var(--red-light)';
+    div.style.color = 'var(--red)';
+    div.textContent = '⚠️ El mínimo es 1 hora de diferencia.';
+    return;
+  }
+
+  div.style.display = 'block';
+  div.style.background = 'var(--teal-light)';
+  div.style.color = 'var(--teal-dark)';
+  div.textContent = `✓ Cambio de ${diff.toFixed(2)} horas. Se registrará en la bolsa de deudas.`;
+}
+
+async function enviarSolicitud() {
+  const contraparte = document.getElementById('sol-contraparte').value;
+  const fechaA = document.getElementById('sol-fecha-ini').value;
+  const turnoA = document.getElementById('sol-turno-a').value;
+  const motivo = document.getElementById('sol-motivo').value;
+
+  if (!contraparte) { alert('Selecciona una compañera.'); return; }
+  if (!fechaA) { alert('Selecciona tu fecha.'); return; }
+  if (!turnoA) { alert('No tienes turno ese día.'); return; }
+
+  let solicitud = {
+    solicitante_id: currentUser.id,
+    contraparte_id: contraparte,
+    tipo: 'cambio',
+    tipo_cambio: tipoCambioActual,
+    fecha_desde: fechaA,
+    fecha_hasta: fechaA,
+    motivo: motivo || null,
+    estado: tipoCambioActual === 'completo' ? 'pendiente' : 'pendiente_aprobacion'
+  };
+
+  if (tipoCambioActual === 'completo') {
+    const fechaB = document.getElementById('sol-fecha-b').value;
+    const turnoB = document.getElementById('sol-turno-b').value;
+    if (!fechaB || !turnoB) { alert('Indica la fecha y turno de tu compañera.'); return; }
+    solicitud.fecha_desde_b = fechaB;
+  }
+
+  if (tipoCambioActual === 'parcial') {
+    const horaFin = document.getElementById('sol-hora-fin').value;
+    const horaIni = document.getElementById('sol-hora-ini-b').value;
+    if (!horaFin || !horaIni) { alert('Indica las horas del cambio parcial.'); return; }
+    const diff = Math.abs(
+      (parseInt(horaIni.split(':')[0])*60 + parseInt(horaIni.split(':')[1])) -
+      (parseInt(horaFin.split(':')[0])*60 + parseInt(horaFin.split(':')[1]))
+    ) / 60;
+    if (diff < 1) { alert('El mínimo es 1 hora de diferencia.'); return; }
+    solicitud.hora_inicio_real = horaFin;
+    solicitud.hora_fin_real = horaIni;
+    solicitud.horas_cambio = diff;
+  }
+
+  const { error } = await sb.from('solicitudes').insert(solicitud);
+  if (error) { alert('Error al enviar. Inténtalo de nuevo.'); return; }
+
+  const msg = tipoCambioActual === 'completo'
+    ? 'Solicitud enviada. Tu compañera recibirá la notificación.'
+    : 'Solicitud enviada. Pendiente de aprobación de la coordinadora.';
+  alert('✓ ' + msg);
+  renderSolicitudes();
+  switchSolTab('mis', document.querySelectorAll('.tab-btn')[1]);
 }
 
 function switchSolTab(tab, btn) {
-  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  document.getElementById('sol-pendientes').style.display = tab==='pendientes'?'block':'none';
-  document.getElementById('sol-mis').style.display = tab==='mis'?'block':'none';
-  document.getElementById('sol-nueva').style.display = tab==='nueva'?'block':'none';
+  document.getElementById('sol-pendientes').style.display = tab === 'pendientes' ? 'block' : 'none';
+  document.getElementById('sol-mis').style.display = tab === 'mis' ? 'block' : 'none';
+  document.getElementById('sol-deudas').style.display = tab === 'deudas' ? 'block' : 'none';
+  document.getElementById('sol-nueva').style.display = tab === 'nueva' ? 'block' : 'none';
+  if (tab === 'deudas') cargarDeudas();
+  if (tab === 'nueva') {
+    const hoy = new Date().toISOString().split('T')[0];
+    document.getElementById('sol-fecha-ini').value = hoy;
+    document.getElementById('sol-fecha-b').value = hoy;
+    cargarTurnosDia(hoy, 'sol-turno-a', currentUser?.id);
+  }
+}
+
+async function cargarDeudas() {
+  const { data: deudas } = await sb.from('bolsa_deudas')
+    .select('*, acreedora:acreedora_id(nick), deudora:deudora_id(nick)')
+    .or(`acreedora_id.eq.${currentUser.id},deudora_id.eq.${currentUser.id}`)
+    .eq('estado', 'pendiente')
+    .order('fecha_origen', { ascending: false });
+
+  const div = document.getElementById('sol-deudas');
+  if (!deudas || deudas.length === 0) {
+    div.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" style="width:36px;height:36px;stroke:var(--border);fill:none;stroke-width:1.5;display:block;margin:0 auto 10px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Sin deudas pendientes</div>';
+    return;
+  }
+
+  let html = '';
+  deudas.forEach(d => {
+    const esMiDeuda = d.deudora_id === currentUser.id;
+    const compañera = esMiDeuda ? d.acreedora?.nick : d.deudora?.nick;
+    const texto = esMiDeuda
+      ? `Debes ${d.horas}h a ${compañera}`
+      : `${compañera} te debe ${d.horas}h`;
+    const cls = esMiDeuda ? 'deuda-negativo' : 'deuda-positivo';
+    const icon = esMiDeuda ? '↑' : '↓';
+
+    html += `<div class="deuda-item">
+      <div style="width:32px;height:32px;border-radius:50%;background:${esMiDeuda?'var(--red-light)':'var(--teal-light)'};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:${esMiDeuda?'var(--red)':'var(--teal-dark)'}">${icon}</div>
+      <div style="flex:1">
+        <div class="deuda-saldo ${cls}">${texto}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Origen: ${d.fecha_origen}</div>
+      </div>
+    </div>`;
+  });
+  div.innerHTML = `<div class="card">${html}</div>`;
 }
 
 // PERFIL
