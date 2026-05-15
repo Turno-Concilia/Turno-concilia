@@ -897,22 +897,21 @@ async function aplicarCambioCompleto(sol) {
     return;
   }
 
-  // Intercambiar: A pasa a tener el turno de B y viceversa
-  await sb.from('cuadrante').update({
-    codigo_turno: celdaB.codigo_turno,
-    incidencia: celdaB.incidencia,
-    turno_original: celdaA.codigo_turno,
-    modificado_por: currentUser.id,
-    modificado_en: new Date().toISOString()
-  }).eq('id', celdaA.id);
+  // Helper: preparar los datos correctos para el intercambio
+  // Si la celda solo tiene incidencia (L, F...) sin turno, mantener esa incidencia
+  function prepararDatos(celdaOrigen, celdaDestino) {
+    return {
+      codigo_turno: celdaOrigen.codigo_turno || null,
+      incidencia: celdaOrigen.incidencia || null,
+      turno_original: celdaDestino.codigo_turno || celdaDestino.incidencia || null,
+      modificado_por: currentUser.id,
+      modificado_en: new Date().toISOString()
+    };
+  }
 
-  await sb.from('cuadrante').update({
-    codigo_turno: celdaA.codigo_turno,
-    incidencia: celdaA.incidencia,
-    turno_original: celdaB.codigo_turno,
-    modificado_por: currentUser.id,
-    modificado_en: new Date().toISOString()
-  }).eq('id', celdaB.id);
+  // Intercambiar: A pasa a tener el turno de B y viceversa
+  await sb.from('cuadrante').update(prepararDatos(celdaB, celdaA)).eq('id', celdaA.id);
+  await sb.from('cuadrante').update(prepararDatos(celdaA, celdaB)).eq('id', celdaB.id);
 }
 
 async function aplicarCambioDevolucion(sol) {
