@@ -378,30 +378,36 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         </div>
 
         <!-- MI TURNO -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <div class="form-group">
-            <label class="form-label">Mi fecha</label>
-            <input type="date" class="form-input" id="sol-fecha-ini">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Mi turno</label>
-            <select class="form-input" id="sol-turno-a">
-              <option value="">Cargando...</option>
-            </select>
+        <div style="background:var(--blue-light);border-radius:var(--radius);padding:12px;margin-bottom:10px">
+          <div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:8px">Yo le hago...</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label">Mi día</label>
+              <input type="date" class="form-input" id="sol-fecha-ini">
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label">Mi turno</label>
+              <select class="form-input" id="sol-turno-a">
+                <option value="">Selecciona fecha</option>
+              </select>
+            </div>
           </div>
         </div>
 
         <!-- TURNO DE B (solo cambio completo) -->
-        <div id="campos-b" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <div class="form-group">
-            <label class="form-label">Fecha de ella</label>
-            <input type="date" class="form-input" id="sol-fecha-b">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Su turno</label>
-            <select class="form-input" id="sol-turno-b">
-              <option value="">Selecciona fecha primero</option>
-            </select>
+        <div id="campos-b" style="background:var(--teal-light);border-radius:var(--radius);padding:12px;margin-bottom:10px">
+          <div style="font-size:12px;font-weight:600;color:var(--teal-dark);margin-bottom:8px">Ella me devuelve...</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label">Su día</label>
+              <input type="date" class="form-input" id="sol-fecha-b">
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label">Su turno</label>
+              <select class="form-input" id="sol-turno-b">
+                <option value="">Selecciona fecha</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -852,12 +858,26 @@ function inicializarEventosSolicitudes() {
 
   document.getElementById('sol-fecha-b').addEventListener('change', e => {
     const contraparteId = document.getElementById('sol-contraparte').value;
-    if (contraparteId) cargarTurnosDia(e.target.value, 'sol-turno-b', contraparteId);
+    if (contraparteId && e.target.value) {
+      cargarTurnosDia(e.target.value, 'sol-turno-b', contraparteId);
+    }
   });
 
   document.getElementById('sol-contraparte').addEventListener('change', e => {
     const fechaB = document.getElementById('sol-fecha-b').value;
-    if (fechaB && e.target.value) cargarTurnosDia(fechaB, 'sol-turno-b', e.target.value);
+    const contraparteId = e.target.value;
+    if (contraparteId) {
+      if (fechaB) {
+        cargarTurnosDia(fechaB, 'sol-turno-b', contraparteId);
+      } else {
+        // Si no hay fecha de B, usar la misma que A como sugerencia
+        const fechaA = document.getElementById('sol-fecha-ini').value;
+        if (fechaA) {
+          document.getElementById('sol-fecha-b').value = fechaA;
+          cargarTurnosDia(fechaA, 'sol-turno-b', contraparteId);
+        }
+      }
+    }
   });
 
   document.getElementById('sol-hora-fin').addEventListener('change', calcularHorasParcial);
