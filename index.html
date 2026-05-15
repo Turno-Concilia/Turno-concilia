@@ -362,8 +362,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           </button>
           <button class="tipo-cambio-btn" onclick="selTipoCambio('devolucion',this)">
             <div style="font-size:18px">⏳</div>
-            <div style="font-size:11px;margin-top:4px;font-weight:500">Con devolución</div>
-            <div style="font-size:10px;color:var(--text-muted);margin-top:2px">Te cubre, devuelves después</div>
+            <div style="font-size:11px;margin-top:4px;font-weight:500">Devolución posterior</div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:2px">Le cubres, te devuelve después</div>
           </button>
           <button class="tipo-cambio-btn" onclick="selTipoCambio('parcial',this)">
             <div style="font-size:18px">⏱️</div>
@@ -418,12 +418,44 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
         <!-- HORAS PARCIALES (solo cambio parcial) -->
         <div id="campos-parcial" style="display:none">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="form-group">
-              <label class="form-label">Yo trabajo hasta</label>
+          <!-- Bloque: yo trabajo hasta -->
+          <div style="background:var(--blue-light);border-radius:var(--radius);padding:12px;margin-bottom:10px">
+            <div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:4px">Yo le hago...</div>
+            <div style="font-size:11px;color:var(--blue);opacity:.8;margin-bottom:8px">El turno de ella que yo voy a cubrir parcialmente</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">Su día</label>
+                <input type="date" class="form-input" id="sol-fecha-parcial-b">
+              </div>
+              <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">Su turno</label>
+                <select class="form-input" id="sol-turno-parcial-b">
+                  <option value="">Selecciona fecha</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group" style="margin-bottom:0;margin-top:10px">
+              <label class="form-label">Yo trabajo hasta las</label>
               <input type="time" class="form-input" id="sol-hora-fin">
             </div>
-            <div class="form-group">
+          </div>
+          <!-- Bloque: ella me hace -->
+          <div style="background:var(--teal-light);border-radius:var(--radius);padding:12px;margin-bottom:10px">
+            <div style="font-size:12px;font-weight:600;color:var(--teal-dark);margin-bottom:4px">Ella me hace...</div>
+            <div style="font-size:11px;color:var(--teal-dark);opacity:.8;margin-bottom:8px">El día mío que ella va a cubrir parcialmente</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">Mi día</label>
+                <input type="date" class="form-input" id="sol-fecha-parcial-a">
+              </div>
+              <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">Mi turno</label>
+                <select class="form-input" id="sol-turno-parcial-a">
+                  <option value="">Selecciona fecha</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group" style="margin-bottom:0;margin-top:10px">
               <label class="form-label">Ella entra a las</label>
               <input type="time" class="form-input" id="sol-hora-ini-b">
             </div>
@@ -783,7 +815,7 @@ async function renderSolicitudes() {
       const ini = (s.solicitante?.nick||'').split(' ').map(w=>w[0]).join('').slice(0,2);
       const tipoCambioLabel = {
         completo: '↔ Cambio completo',
-        devolucion: '⏳ Con devolución',
+        devolucion: '⏳ Devolución posterior',
         parcial: '⏱ Parcial por horas'
       }[s.tipo_cambio] || s.tipo;
 
@@ -822,7 +854,7 @@ async function renderSolicitudes() {
   mias.forEach(s => {
     const tipoCambioLabel = {
       completo: '↔ Cambio completo',
-      devolucion: '⏳ Con devolución',
+      devolucion: '⏳ Devolución posterior',
       parcial: '⏱ Parcial'
     }[s.tipo_cambio] || s.tipo;
     const estadoClass = {
@@ -1013,7 +1045,7 @@ async function cargarTurnosDia(fecha, selectId, trabajadoraId) {
   }
 
   // Incidencias que NO se pueden cambiar
-  const noIntercambiables = ['IT', 'P'];
+  const noIntercambiables = ['IT', 'P', 'AP', 'VAC', 'DH'];
   if (data.incidencia && noIntercambiables.includes(data.incidencia)) {
     sel.innerHTML = `<option value="">${data.incidencia} — no disponible para cambio</option>`;
     return;
@@ -1071,6 +1103,15 @@ function inicializarEventosSolicitudes() {
 
   document.getElementById('sol-hora-fin').addEventListener('change', calcularHorasParcial);
   document.getElementById('sol-hora-ini-b').addEventListener('change', calcularHorasParcial);
+
+  document.getElementById('sol-fecha-parcial-b').addEventListener('change', e => {
+    const contraparteId = document.getElementById('sol-contraparte').value;
+    if (contraparteId && e.target.value) cargarTurnosDia(e.target.value, 'sol-turno-parcial-b', contraparteId);
+  });
+
+  document.getElementById('sol-fecha-parcial-a').addEventListener('change', e => {
+    if (currentUser && currentUser.id && e.target.value) cargarTurnosDia(e.target.value, 'sol-turno-parcial-a', currentUser.id);
+  });
 }
 
 function calcularHorasParcial() {
