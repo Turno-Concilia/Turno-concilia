@@ -418,49 +418,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
         <!-- HORAS PARCIALES (solo cambio parcial) -->
         <div id="campos-parcial" style="display:none">
-          <!-- Bloque: yo trabajo hasta -->
-          <div style="background:var(--blue-light);border-radius:var(--radius);padding:12px;margin-bottom:10px">
-            <div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:4px">Yo le hago...</div>
-            <div style="font-size:11px;color:var(--blue);opacity:.8;margin-bottom:8px">El turno de ella que yo voy a cubrir parcialmente</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-              <div class="form-group" style="margin-bottom:0">
-                <label class="form-label">Su día</label>
-                <input type="date" class="form-input" id="sol-fecha-parcial-b">
-              </div>
-              <div class="form-group" style="margin-bottom:0">
-                <label class="form-label">Su turno</label>
-                <select class="form-input" id="sol-turno-parcial-b">
-                  <option value="">Selecciona fecha</option>
-                </select>
-              </div>
-            </div>
-            <div class="form-group" style="margin-bottom:0;margin-top:10px">
-              <label class="form-label">Yo trabajo hasta las</label>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">
+            Indica el momento del relevo — yo trabajo hasta una hora, ella entra a partir de ahí. Las horas se registran en la bolsa de deudas.
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="form-group">
+              <label class="form-label">Yo trabajo hasta</label>
               <input type="time" class="form-input" id="sol-hora-fin">
             </div>
-          </div>
-          <!-- Bloque: ella me hace -->
-          <div style="background:var(--teal-light);border-radius:var(--radius);padding:12px;margin-bottom:10px">
-            <div style="font-size:12px;font-weight:600;color:var(--teal-dark);margin-bottom:4px">Ella me hace...</div>
-            <div style="font-size:11px;color:var(--teal-dark);opacity:.8;margin-bottom:8px">El día mío que ella va a cubrir parcialmente</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-              <div class="form-group" style="margin-bottom:0">
-                <label class="form-label">Mi día</label>
-                <input type="date" class="form-input" id="sol-fecha-parcial-a">
-              </div>
-              <div class="form-group" style="margin-bottom:0">
-                <label class="form-label">Mi turno</label>
-                <select class="form-input" id="sol-turno-parcial-a">
-                  <option value="">Selecciona fecha</option>
-                </select>
-              </div>
-            </div>
-            <div class="form-group" style="margin-bottom:0;margin-top:10px">
+            <div class="form-group">
               <label class="form-label">Ella entra a las</label>
               <input type="time" class="form-input" id="sol-hora-ini-b">
             </div>
           </div>
-          <div id="horas-calculo" style="background:var(--teal-light);border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;color:var(--teal-dark);margin-bottom:10px;display:none">
+          <div id="horas-calculo" style="border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;margin-bottom:10px;display:none">
           </div>
         </div>
 
@@ -1104,14 +1075,7 @@ function inicializarEventosSolicitudes() {
   document.getElementById('sol-hora-fin').addEventListener('change', calcularHorasParcial);
   document.getElementById('sol-hora-ini-b').addEventListener('change', calcularHorasParcial);
 
-  document.getElementById('sol-fecha-parcial-b').addEventListener('change', e => {
-    const contraparteId = document.getElementById('sol-contraparte').value;
-    if (contraparteId && e.target.value) cargarTurnosDia(e.target.value, 'sol-turno-parcial-b', contraparteId);
-  });
 
-  document.getElementById('sol-fecha-parcial-a').addEventListener('change', e => {
-    if (currentUser && currentUser.id && e.target.value) cargarTurnosDia(e.target.value, 'sol-turno-parcial-a', currentUser.id);
-  });
 }
 
 function calcularHorasParcial() {
