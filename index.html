@@ -145,6 +145,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .empty-state{text-align:center;padding:32px 16px;color:var(--text-muted);font-size:13px}
 .tipo-cambio-btn{flex:1;padding:10px 6px;border:0.5px solid var(--border);border-radius:var(--radius);background:var(--white);cursor:pointer;text-align:center;transition:all .15s}
 .tipo-cambio-btn.active{border-color:var(--blue);background:var(--blue-light)}
+.cat-btn{flex:1;padding:7px 12px;border:0.5px solid var(--border);border-radius:var(--radius-sm);background:var(--white);cursor:pointer;text-align:center;transition:all .15s}
+.cat-btn.active{background:var(--teal-dark);color:white;border-color:var(--teal-dark)}
 .deuda-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:0.5px solid var(--border)}
 .deuda-item:last-child{border-bottom:none}
 .deuda-saldo{font-size:13px;font-weight:600}
@@ -308,6 +310,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <span class="mes-titulo" id="mes-titulo"></span>
       <button onclick="cambiarMes(1)"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
     </div>
+    <!-- Selector de categoría -->
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      <button class="cat-btn active" id="cat-auxiliar" onclick="selCategoria('auxiliar',this)">
+        <span style="font-size:11px;font-weight:500">Auxiliares</span>
+      </button>
+      <button class="cat-btn" id="cat-enfermera" onclick="selCategoria('enfermera',this)">
+        <span style="font-size:11px;font-weight:500">Enfermeras</span>
+      </button>
+    </div>
+
     <div class="leyenda">
       <div class="leyenda-item"><div class="leyenda-dot" style="background:#E1F5EE;border:1px solid #1D9E75"></div>Mañana res.</div>
       <div class="leyenda-item"><div class="leyenda-dot" style="background:#EAF3DE;border:1px solid #3B6D11"></div>Mañana CD</div>
@@ -645,7 +657,7 @@ async function iniciarApp() {
 }
 
 async function cargarTrabajadoras() {
-  const { data } = await sb.from('trabajadoras').select('id,nick,nombre,rol,puesto_compartido').eq('activa', true).eq('en_cuadrante', true).order('nick');
+  const { data } = await sb.from('trabajadoras').select('id,nick,nombre,rol,puesto_compartido,categoria').eq('activa', true).eq('en_cuadrante', true).order('nick');
   if (data) {
     trabajadoras = data;
     const sel = document.getElementById('sol-contraparte');
@@ -677,7 +689,7 @@ async function renderCuadrante() {
 
   // Intentar cargar de Supabase
   const { data: dbData } = await sb.from('cuadrante')
-    .select('trabajadora_id, fecha, codigo_turno, incidencia, turno_original, trabajadoras!cuadrante_trabajadora_id_fkey(nick)')
+    .select('trabajadora_id, fecha, codigo_turno, incidencia, turno_original, trabajadoras!cuadrante_trabajadora_id_fkey(nick,categoria)')
     .gte('fecha', fechaIni).lte('fecha', fechaFin)
     .limit(2000);
 
@@ -707,7 +719,13 @@ async function renderCuadrante() {
   }
   html += '</tr></thead><tbody>';
 
-  const nicks = trabajadoras.map(t=>t.nick);
+  // Filtrar trabajadoras por categoría seleccionada
+  const nicks = trabajadoras.filter(t => t.categoria === categoriaActual).map(t => t.nick);
+  // También filtrar filas del cuadrante por categoría
+  Object.keys(filas).forEach(nick => {
+    const t = trabajadoras.find(w => w.nick === nick);
+    if (t && t.categoria !== categoriaActual) delete filas[nick];
+  });
   nicks.forEach(nick => {
     const esMia = currentUser && currentUser.nick === nick;
     html += `<tr${esMia?' class="fila-propia"':''}>`;
@@ -998,6 +1016,14 @@ async function resolverSol(id, estado) {
 // ============================================================
 
 let tipoCambioActual = 'completo';
+let categoriaActual = 'auxiliar';
+
+function selCategoria(cat, btn) {
+  categoriaActual = cat;
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderCuadrante();
+}
 
 function selTipoCambio(tipo, btn) {
   tipoCambioActual = tipo;
