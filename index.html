@@ -839,11 +839,38 @@ async function cargarTurnosDia(fecha, selectId, trabajadoraId) {
     .single();
 
   const sel = document.getElementById(selectId);
-  if (!data || (!data.codigo_turno && !data.turno_original)) {
+  if (!data) {
+    sel.innerHTML = '<option value="">Sin datos ese día</option>';
+    return;
+  }
+
+  // Incidencias que NO se pueden cambiar
+  const noIntercambiables = ['IT', 'P'];
+  if (data.incidencia && noIntercambiables.includes(data.incidencia)) {
+    sel.innerHTML = `<option value="">${data.incidencia} — no disponible para cambio</option>`;
+    return;
+  }
+
+  // Incidencias intercambiables (L, F, AP, VAC, DH, HE...)
+  if (data.incidencia && data.incidencia !== 'SA') {
+    sel.innerHTML = `<option value="${data.incidencia}">${data.incidencia}</option>`;
+    return;
+  }
+
+  // Si es SA (sin asignar en puesto compartido) usar turno_original
+  if (data.incidencia === 'SA') {
+    const turno = data.turno_original || data.codigo_turno;
+    if (!turno) { sel.innerHTML = '<option value="">Sin turno ese día</option>'; return; }
+    sel.innerHTML = `<option value="${turno}">${turno} (pendiente asignar)</option>`;
+    return;
+  }
+
+  // Turno normal
+  const turno = data.codigo_turno;
+  if (!turno) {
     sel.innerHTML = '<option value="">Sin turno ese día</option>';
     return;
   }
-  const turno = data.codigo_turno || data.turno_original;
   sel.innerHTML = `<option value="${turno}">${turno}</option>`;
 }
 
