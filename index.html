@@ -408,7 +408,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div style="background:var(--blue-light);border-radius:var(--radius);padding:12px;margin-bottom:10px">
           <div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:4px">Yo le hago...</div>
           <div style="font-size:11px;color:var(--blue);opacity:.8;margin-bottom:8px">El día de ella que yo voy a cubrir</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
             <div class="form-group" style="margin-bottom:0">
               <label class="form-label">Su día</label>
               <input type="date" class="form-input" id="sol-fecha-b">
@@ -420,9 +420,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
               </select>
             </div>
           </div>
-          <!-- Solo en parcial -->
-          <div id="parcial-bloque-b" style="display:none;margin-top:10px">
-            <div id="horario-turno-b" style="font-size:11px;color:var(--blue);margin-bottom:8px"></div>
+          <!-- Horas solo en parcial -->
+          <div id="parcial-bloque-b" style="display:none">
+            <div id="horario-turno-b" style="font-size:11px;color:var(--blue);margin-bottom:6px;font-style:italic"></div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
               <div class="form-group" style="margin-bottom:0">
                 <label class="form-label">Desde las</label>
@@ -436,11 +436,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           </div>
         </div>
 
-        <!-- ELLA ME HACE / DEVUELVE: mi día/turno que ella va a cubrir -->
+        <!-- ELLA ME DEVUELVE: mi día/turno que ella va a cubrir -->
         <div id="campos-b" style="background:var(--teal-light);border-radius:var(--radius);padding:12px;margin-bottom:10px">
           <div style="font-size:12px;font-weight:600;color:var(--teal-dark);margin-bottom:4px" id="label-campos-b">Ella me devuelve...</div>
           <div style="font-size:11px;color:var(--teal-dark);opacity:.8;margin-bottom:8px" id="sublabel-campos-b">El día mío que ella va a cubrir</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
             <div class="form-group" style="margin-bottom:0">
               <label class="form-label">Mi día</label>
               <input type="date" class="form-input" id="sol-fecha-ini">
@@ -452,9 +452,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
               </select>
             </div>
           </div>
-          <!-- Solo en parcial -->
-          <div id="parcial-bloque-a" style="display:none;margin-top:10px">
-            <div id="horario-turno-a" style="font-size:11px;color:var(--teal-dark);margin-bottom:8px"></div>
+          <!-- Horas solo en parcial -->
+          <div id="parcial-bloque-a" style="display:none">
+            <div id="horario-turno-a" style="font-size:11px;color:var(--teal-dark);margin-bottom:6px;font-style:italic"></div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
               <div class="form-group" style="margin-bottom:0">
                 <label class="form-label">Desde las</label>
@@ -468,7 +468,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           </div>
         </div>
 
-        <!-- Cálculo de horas (solo parcial) -->
+        <!-- Resumen horas (solo parcial) -->
         <div id="horas-calculo" style="border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;margin-bottom:10px;display:none"></div>
 
         <div class="form-group">
@@ -1104,9 +1104,11 @@ function selTipoCambio(tipo, btn) {
 
 // Horarios por tipo de turno
 const HORARIOS_TURNO = {
-  M: '07:45 — 15:00', CD: '07:45 — 15:00',
-  T: '14:45 — 22:00', TC: '14:45 — 22:00',
-  N: '21:45 — 08:00'
+  M: { ini: '07:45', fin: '15:00' },
+  CD: { ini: '07:45', fin: '15:00' },
+  T: { ini: '14:45', fin: '22:00' },
+  TC: { ini: '14:45', fin: '22:00' },
+  N: { ini: '21:45', fin: '08:00' }
 };
 
 function getHorarioTurno(cod) {
@@ -1162,24 +1164,24 @@ async function cargarTurnosDia(fecha, selectId, trabajadoraId) {
 
   // Actualizar display de horario en modo parcial y rellenar horas automáticamente
   const horario = getHorarioTurno(turno);
-  if (horario) {
-    const [horaIni, horaFin2] = horario.split(' — ');
+  if (horario && tipoCambioActual === 'parcial') {
     if (selectId === 'sol-turno-b') {
       const el = document.getElementById('horario-turno-b');
-      if (el) el.textContent = `Turno ${turno} · ${horario} h`;
-      // Rellenar horas automáticamente
+      if (el) el.textContent = `Horario completo: ${horario.ini} — ${horario.fin}`;
       const ini = document.getElementById('sol-hora-ini-b2');
       const fin = document.getElementById('sol-hora-fin-b2');
-      if (ini) ini.value = horaIni;
-      if (fin) fin.value = horaFin2;
+      if (ini && !ini.value) ini.value = horario.ini;
+      if (fin && !fin.value) fin.value = horario.fin;
+      calcularHorasParcial();
     }
     if (selectId === 'sol-turno-a') {
       const el = document.getElementById('horario-turno-a');
-      if (el) el.textContent = `Turno ${turno} · ${horario} h`;
+      if (el) el.textContent = `Horario completo: ${horario.ini} — ${horario.fin}`;
       const ini = document.getElementById('sol-hora-ini-a2');
       const fin = document.getElementById('sol-hora-fin');
-      if (ini) ini.value = horaIni;
-      if (fin) fin.value = horaFin2;
+      if (ini && !ini.value) ini.value = horario.ini;
+      if (fin && !fin.value) fin.value = horario.fin;
+      calcularHorasParcial();
     }
   }
 }
@@ -1212,35 +1214,49 @@ function inicializarEventosSolicitudes() {
   });
 
   document.getElementById('sol-hora-fin').addEventListener('change', calcularHorasParcial);
-  document.getElementById('sol-hora-ini-b2')?.addEventListener('change', calcularHorasParcial);
-  document.getElementById('sol-hora-fin-b2')?.addEventListener('change', calcularHorasParcial);
+  document.getElementById('sol-hora-ini-b2').addEventListener('change', calcularHorasParcial);
+  document.getElementById('sol-hora-fin-b2').addEventListener('change', calcularHorasParcial);
+  document.getElementById('sol-hora-ini-a2').addEventListener('change', calcularHorasParcial);
 
 
 }
 
 function calcularHorasParcial() {
-  const horaIniB = document.getElementById('sol-hora-ini-b2')?.value;
-  const horaFinB = document.getElementById('sol-hora-fin-b2')?.value;
   const div = document.getElementById('horas-calculo');
-  if (!horaIniB || !horaFinB) { div.style.display = 'none'; return; }
+  const iniB = document.getElementById('sol-hora-ini-b2')?.value;
+  const finB = document.getElementById('sol-hora-fin-b2')?.value;
+  const iniA = document.getElementById('sol-hora-ini-a2')?.value;
+  const finA = document.getElementById('sol-hora-fin')?.value;
 
-  const minIni = parseInt(horaIniB.split(':')[0])*60 + parseInt(horaIniB.split(':')[1]);
-  const minFin = parseInt(horaFinB.split(':')[0])*60 + parseInt(horaFinB.split(':')[1]);
-  let diff = (minFin - minIni) / 60;
-  if (diff < 0) diff += 24; // turno de noche cruza medianoche
+  if (!iniB || !finB) { div.style.display = 'none'; return; }
 
-  if (diff < 1) {
+  function calcHoras(ini, fin) {
+    const mi = parseInt(ini.split(':')[0])*60 + parseInt(ini.split(':')[1]);
+    const mf = parseInt(fin.split(':')[0])*60 + parseInt(fin.split(':')[1]);
+    let d = (mf - mi) / 60;
+    if (d < 0) d += 24;
+    return d;
+  }
+
+  const horasB = calcHoras(iniB, finB);
+  if (horasB < 1) {
     div.style.display = 'block';
     div.style.background = 'var(--red-light)';
     div.style.color = 'var(--red)';
-    div.textContent = '⚠️ El mínimo es 1 hora de diferencia.';
+    div.textContent = '⚠️ Mínimo 1 hora por bloque.';
     return;
   }
 
   div.style.display = 'block';
   div.style.background = 'var(--teal-light)';
   div.style.color = 'var(--teal-dark)';
-  div.textContent = `✓ Yo hago ${diff.toFixed(2)}h de su turno. Se registrará en la bolsa de deudas.`;
+
+  if (iniA && finA) {
+    const horasA = calcHoras(iniA, finA);
+    div.textContent = `✓ Yo hago ${horasB.toFixed(2)}h · Ella me hace ${horasA.toFixed(2)}h. Quedará registrado en la bolsa de deudas.`;
+  } else {
+    div.textContent = `✓ Yo hago ${horasB.toFixed(2)}h de su turno.`;
+  }
 }
 
 async function enviarSolicitud() {
@@ -1274,29 +1290,32 @@ async function enviarSolicitud() {
   }
 
   if (tipoCambioActual === 'parcial') {
-    // Yo le hago: horas del bloque B (su turno)
     const horaIniB = document.getElementById('sol-hora-ini-b2').value;
     const horaFinB = document.getElementById('sol-hora-fin-b2').value;
-    // Ella me hace: horas del bloque A (mi turno)
     const horaIniA = document.getElementById('sol-hora-ini-a2').value;
     const horaFinA = document.getElementById('sol-hora-fin').value;
 
-    if (!horaIniB || !horaFinB || !horaIniA || !horaFinA) {
-      alert('Indica todas las horas del cambio parcial.'); return;
+    if (!horaIniB || !horaFinB) {
+      alert('Indica las horas del bloque "Yo le hago".'); return;
     }
 
-    // Calcular horas que yo hago de su turno
-    const minIniB = parseInt(horaIniB.split(':')[0])*60 + parseInt(horaIniB.split(':')[1]);
-    const minFinB = parseInt(horaFinB.split(':')[0])*60 + parseInt(horaFinB.split(':')[1]);
-    // Para noche, horaFin puede ser menor que horaIni (cruza medianoche)
-    let horasB = (minFinB - minIniB) / 60;
-    if (horasB < 0) horasB += 24;
+    function calcH(ini, fin) {
+      const mi = parseInt(ini.split(':')[0])*60 + parseInt(ini.split(':')[1]);
+      const mf = parseInt(fin.split(':')[0])*60 + parseInt(fin.split(':')[1]);
+      let d = (mf - mi) / 60; if (d < 0) d += 24; return d;
+    }
 
-    if (horasB < 1) { alert('El mínimo es 1 hora de diferencia.'); return; }
+    const horasB = calcH(horaIniB, horaFinB);
+    if (horasB < 1) { alert('Mínimo 1 hora en el bloque "Yo le hago".'); return; }
 
     solicitud.hora_inicio_real = horaIniB;
     solicitud.hora_fin_real = horaFinB;
     solicitud.horas_cambio = parseFloat(horasB.toFixed(2));
+
+    if (horaIniA && horaFinA) {
+      const horasA = calcH(horaIniA, horaFinA);
+      if (horasA < 1) { alert('Mínimo 1 hora en el bloque "Ella me devuelve".'); return; }
+    }
   }
 
   const { error } = await sb.from('solicitudes').insert(solicitud);
