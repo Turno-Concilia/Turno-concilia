@@ -1642,7 +1642,9 @@ async function abrirEditarTrabajadora(id) {
         <label class="form-label">Rol</label>
         <select class="form-input" id="edit-rol">
           <option value="auxiliar" ${t.rol==='auxiliar'?'selected':''}>Auxiliar</option>
-          <option value="coordinadora" ${t.rol==='coordinadora'?'selected':''}>Coordinadora</option>
+          <option value="enfermera" ${t.rol==='enfermera'?'selected':''}>Enfermera</option>
+          <option value="coordinadora" ${t.rol==='coordinadora'?'selected':''}>Coordinadora auxiliares</option>
+          <option value="coordinadora_enfermera" ${t.rol==='coordinadora_enfermera'?'selected':''}>Coordinadora enfermeras</option>
           <option value="superadmin" ${t.rol==='superadmin'?'selected':''}>Superadmin</option>
         </select>
       </div>
