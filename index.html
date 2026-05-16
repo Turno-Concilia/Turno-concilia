@@ -241,6 +241,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <button class="demo-btn" style="flex:1;justify-content:center" onclick="loginDemo('auxiliar2')">
         <span class="demo-badge" style="background:#FAEEDA;color:#633806">Ana G.</span>
       </button>
+      <button class="demo-btn" style="flex:1;justify-content:center" onclick="loginDemo('enfermera')">
+        <span class="demo-badge" style="background:#E6F1FB;color:#185FA5">Ana P.</span>
+      </button>
     </div>
   </div>
 </div>
@@ -626,7 +629,7 @@ async function doLogin() {
 
 // LOGIN DEMO (sin Supabase Auth, carga directamente de la tabla)
 async function loginDemo(tipo) {
-  const emails = { superadmin:'admin@santallucia.es', coordinadora:'coordinadora@santallucia.es', auxiliar:'inma.soler@santallucia.es', auxiliar2:'ana.garcia@santallucia.es' };
+  const emails = { superadmin:'admin@santallucia.es', coordinadora:'coordinadora@santallucia.es', auxiliar:'inma.soler@santallucia.es', auxiliar2:'ana.garcia@santallucia.es', enfermera:'anap@santallucia.es' };
   const { data } = await sb.from('trabajadoras').select('*').eq('email', emails[tipo]).single();
   if (data) {
     currentUser = data;
