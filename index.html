@@ -629,7 +629,7 @@ async function doLogin() {
 
 // LOGIN DEMO (sin Supabase Auth, carga directamente de la tabla)
 async function loginDemo(tipo) {
-  const emails = { superadmin:'admin@santallucia.es', coordinadora:'coordinadora@santallucia.es', auxiliar:'inma.soler@santallucia.es', auxiliar2:'ana.garcia@santallucia.es', enfermera:'anap@santallucia.es' };
+  const emails = { superadmin:'andreapastorzorita@hotmail.com', coordinadora:'inof1223@hotmail.com', auxiliar:'inma.soler@santallucia.es', auxiliar2:'ana.garcia@santallucia.es', enfermera:'anap@santallucia.es' };
   const { data } = await sb.from('trabajadoras').select('*').eq('email', emails[tipo]).single();
   if (data) {
     currentUser = data;
@@ -848,7 +848,8 @@ async function renderSolicitudes() {
   // PENDIENTES: solicitudes donde soy la contraparte (me piden a mí) o soy coordinadora
   const pendientes = (data||[]).filter(s => {
     if (esCoord) return ['pendiente','pendiente_aprobacion'].includes(s.estado);
-    return s.contraparte_id === currentUser.id && s.estado === 'pendiente';
+    // La contraparte ve tanto pendiente (cambio completo) como pendiente_aprobacion (parcial/devolución)
+    return s.contraparte_id === currentUser.id && ['pendiente','pendiente_aprobacion'].includes(s.estado);
   });
 
   let html = '';
@@ -878,12 +879,14 @@ async function renderSolicitudes() {
           <div class="sol-detalle">${detalle}</div>
           ${s.motivo?`<div class="sol-detalle" style="font-style:italic">"${s.motivo}"</div>`:''}
           <div class="sol-actions" style="margin-top:6px">
-            ${esMiSolicitud && !esCoord ? `
-              <button class="btn-accept" onclick="aceptarCambio('${s.id}')">✓ Aceptar</button>
-              <button class="btn-reject" onclick="rechazarCambio('${s.id}')">✗ Rechazar</button>
-            ` : esCoord ? `
+            ${esCoord ? `
               <button class="btn-accept" onclick="aceptarCambio('${s.id}')">✓ Aprobar</button>
               <button class="btn-reject" onclick="rechazarCambio('${s.id}')">✗ Vetar</button>
+            ` : (esMiSolicitud && s.estado === 'pendiente') ? `
+              <button class="btn-accept" onclick="aceptarCambio('${s.id}')">✓ Aceptar</button>
+              <button class="btn-reject" onclick="rechazarCambio('${s.id}')">✗ Rechazar</button>
+            ` : (esMiSolicitud && s.estado === 'pendiente_aprobacion') ? `
+              <span style="font-size:11px;color:var(--amber)">⏳ Pendiente de aprobación de coordinadora</span>
             ` : '<span style="font-size:11px;color:var(--text-muted)">Pendiente de respuesta</span>'}
           </div>
         </div>
