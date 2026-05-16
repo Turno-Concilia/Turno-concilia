@@ -1316,7 +1316,7 @@ async function enviarSolicitud() {
   }
 
   const { error } = await sb.from('solicitudes').insert(solicitud);
-  if (error) { alert('Error al enviar. Inténtalo de nuevo.'); return; }
+  if (error) { alert('Error al enviar: ' + error.message); return; }
 
   const msg = tipoCambioActual === 'completo'
     ? 'Solicitud enviada. Tu compañera recibirá la notificación.'
