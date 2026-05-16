@@ -157,6 +157,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .cal-num{font-size:11px;font-weight:500;color:var(--text-muted)}
 .cal-turno{font-size:10px;font-weight:600;padding:2px 4px;border-radius:3px;text-align:center;width:100%}
 .cal-horario{font-size:9px;color:var(--text-muted);text-align:center}
+.parcial-hidden{display:none!important}
 .deuda-item:last-child{border-bottom:none}
 .deuda-saldo{font-size:13px;font-weight:600}
 .deuda-positivo{color:var(--teal-dark)}
@@ -1092,9 +1093,16 @@ function selTipoCambio(tipo, btn) {
     if (sublabelB) sublabelB.textContent = 'El día mío que ella va a cubrir';
   }
   const esParcial = tipo === 'parcial';
-  document.getElementById('campos-parcial-a').style.display = esParcial ? 'block' : 'none';
-  document.getElementById('campos-parcial-b').style.display = esParcial ? 'block' : 'none';
-  if (!esParcial) document.getElementById('horas-calculo').style.display = 'none';
+  const pa = document.getElementById('campos-parcial-a');
+  const pb = document.getElementById('campos-parcial-b');
+  if (esParcial) {
+    pa.classList.remove('parcial-hidden');
+    pb.classList.remove('parcial-hidden');
+  } else {
+    pa.classList.add('parcial-hidden');
+    pb.classList.add('parcial-hidden');
+    document.getElementById('horas-calculo').style.display = 'none';
+  }
   const labelFijo = document.getElementById('label-campos-b');
   const sublabelFijo = document.getElementById('sublabel-campos-b');
   if (labelFijo) labelFijo.textContent = tipo === 'parcial' ? 'Ella me hace...' : 'Ella me devuelve...';
