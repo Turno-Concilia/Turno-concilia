@@ -935,23 +935,44 @@ async function aceptarCambio(solicitudId) {
   const { data: sol } = await sb.from('solicitudes').select('*').eq('id', solicitudId).single();
   if (!sol) return;
 
-  // Marcar como aprobada
-  await sb.from('solicitudes').update({
-    estado: 'aprobada',
-    resuelta_por: currentUser.id,
-    resuelta_en: new Date().toISOString()
-  }).eq('id', solicitudId);
+  const esCoordLocal = ['coordinadora','coordinadora_enfermera','superadmin'].includes(currentUser.rol);
 
-  // Aplicar cambio en el cuadrante según tipo
-  if (sol.tipo_cambio === 'completo') {
+  if (esCoordLocal) {
+    // Coordinadora aprueba — aplicar cambio en el cuadrante
+    await sb.from('solicitudes').update({
+      estado: 'aprobada',
+      resuelta_por: currentUser.id,
+      resuelta_en: new Date().toISOString()
+    }).eq('id', solicitudId);
+
+    if (sol.tipo_cambio === 'completo') {
+      await aplicarCambioCompleto(sol);
+    } else if (sol.tipo_cambio === 'devolucion') {
+      await aplicarCambioDevolucion(sol);
+    } else if (sol.tipo_cambio === 'parcial') {
+      await aplicarCambioParcial(sol);
+    }
+    alert('✓ Cambio aprobado y aplicado en el cuadrante.');
+
+  } else if (sol.tipo_cambio === 'completo') {
+    // Contraparte acepta cambio completo — aplicar directamente y notificar coordinadora
+    await sb.from('solicitudes').update({
+      estado: 'aprobada',
+      resuelta_por: currentUser.id,
+      resuelta_en: new Date().toISOString()
+    }).eq('id', solicitudId);
     await aplicarCambioCompleto(sol);
-  } else if (sol.tipo_cambio === 'devolucion') {
-    await aplicarCambioDevolucion(sol);
-  } else if (sol.tipo_cambio === 'parcial') {
-    await aplicarCambioParcial(sol);
+    alert('✓ Cambio aceptado y aplicado. La coordinadora ha sido notificada.');
+
+  } else {
+    // Contraparte acepta parcial/devolución — pasa a pendiente_aprobacion de coordinadora
+    await sb.from('solicitudes').update({
+      estado: 'pendiente_aprobacion',
+      resuelta_por: currentUser.id
+    }).eq('id', solicitudId);
+    alert('✓ Has aceptado el cambio. Pendiente de aprobación de la coordinadora.');
   }
 
-  alert('✓ Cambio aceptado y aplicado en el cuadrante.');
   renderSolicitudes();
   renderCuadrante();
 }
@@ -1278,7 +1299,7 @@ async function enviarSolicitud() {
     fecha_desde: fechaA,
     fecha_hasta: fechaA,
     motivo: motivo || null,
-    estado: tipoCambioActual === 'completo' ? 'pendiente' : 'pendiente_aprobacion'
+    estado: 'pendiente'
   };
 
   if (tipoCambioActual === 'completo') {
