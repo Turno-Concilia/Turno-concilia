@@ -786,7 +786,10 @@ async function renderCuadrante() {
       const esPuestoCompartido = currentUser && currentUser.puesto_compartido;
       const esSA = cod === 'SA';
       const onclick = (esSA && esPuestoCompartido && esMia) ? ` onclick="reclamarDia('${nick}',${d})" title="Reclamar este día"` : '';
-      if (cod) html += `<span class="turno-pill ${cls}"${onclick}>${label}</span>`;
+      const esCoordActual = currentUser && ['coordinadora','coordinadora_enfermera','superadmin'].includes(currentUser.rol);
+      const onclickEdit = esCoordActual ? ` onclick="editarCelda('${nick}',${d},'${cod}','${label}')"` : (cod === 'SA' && esPuestoCompartido && esMia ? ` onclick="reclamarDia('${nick}',${d})" title="Reclamar este día"` : '');
+      if (cod) html += `<span class="turno-pill ${cls}" style="${esCoordActual?'cursor:pointer':''}"${onclickEdit}>${label}</span>`;
+      else if (esCoordActual) html += `<span class="turno-pill t-L" style="cursor:pointer;opacity:0.4"${onclickEdit}>+</span>`;
       html += '</td>';
     }
     html += '</tr>';
@@ -1461,6 +1464,107 @@ function showPage(nombre) {
   if (document.getElementById('nav-'+nombre)) document.getElementById('nav-'+nombre).classList.add('active');
   if (nombre === 'admin') cargarAdminPanel();
   if (nombre === 'micuadrante') renderMiCuadrante();
+}
+
+// ============================================================
+// EDICIÓN DE CUADRANTE — Coordinadora
+// ============================================================
+async function editarCelda(nick, dia, codActual, labelActual) {
+  const esCoordActual = currentUser && ['coordinadora','coordinadora_enfermera','superadmin'].includes(currentUser.rol);
+  if (!esCoordActual) return;
+
+  // Buscar trabajadora_id por nick
+  const trab = trabajadoras.find(t => t.nick === nick);
+  if (!trab) return;
+
+  const fecha = `${anioActual}-${String(mesActual+1).padStart(2,'0')}-${String(dia).padStart(2,'0')}`;
+
+  // Crear modal de edición
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.id = 'modal-celda';
+
+  // Turnos disponibles según categoría
+  const turnosAux = ['M1','M2','M3','M4','M5','M6','M7','M8','M9','M10','M11','M12','CD1','CD2','CD3','T1','T2','T3','T4','T5','T6','TC1','TC2','TC3','N1'];
+  const turnosEnf = ['M','M1','M2','M3','T','N'];
+  const turnos = trab.categoria === 'enfermera' ? turnosEnf : turnosAux;
+  const incidencias = ['L','F','AP','P','IT','VAC','HE','DH'];
+
+  modal.innerHTML = `
+    <div class="modal-sheet">
+      <div class="modal-title">
+        Editar turno — ${nick} · ${dia}/${mesActual+1}
+        <button class="modal-close" onclick="cerrarModalCelda()">✕</button>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Turno actual: <strong>${labelActual||'vacío'}</strong></div>
+      
+      <div class="form-group">
+        <label class="form-label">Turno</label>
+        <select class="form-input" id="celda-turno">
+          <option value="">— Sin turno —</option>
+          ${turnos.map(t => `<option value="${t}" ${codActual===t?'selected':''}>${t}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Incidencia (sobreescribe el turno)</label>
+        <select class="form-input" id="celda-incidencia">
+          <option value="">— Sin incidencia —</option>
+          ${incidencias.map(i => `<option value="${i}" ${codActual===i?'selected':''}>${i}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Hora inicio (cambio parcial)</label>
+        <input type="time" class="form-input" id="celda-hora-ini">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Hora fin (cambio parcial)</label>
+        <input type="time" class="form-input" id="celda-hora-fin">
+      </div>
+      <button class="btn-primary" onclick="guardarCelda('${trab.id}','${fecha}')">Guardar</button>
+    </div>`;
+
+  document.body.appendChild(modal);
+}
+
+function cerrarModalCelda() {
+  const m = document.getElementById('modal-celda');
+  if (m) m.remove();
+}
+
+async function guardarCelda(trabajadoraId, fecha) {
+  const turno = document.getElementById('celda-turno').value || null;
+  const incidencia = document.getElementById('celda-incidencia').value || null;
+  const horaIni = document.getElementById('celda-hora-ini').value || null;
+  const horaFin = document.getElementById('celda-hora-fin').value || null;
+
+  // Buscar si ya existe la celda
+  const { data: existente } = await sb.from('cuadrante')
+    .select('id')
+    .eq('trabajadora_id', trabajadoraId)
+    .eq('fecha', fecha)
+    .single();
+
+  if (existente) {
+    await sb.from('cuadrante').update({
+      codigo_turno: turno,
+      incidencia: incidencia,
+      hora_inicio_real: horaIni,
+      hora_fin_real: horaFin
+    }).eq('id', existente.id);
+  } else {
+    await sb.from('cuadrante').insert({
+      trabajadora_id: trabajadoraId,
+      fecha,
+      codigo_turno: turno,
+      incidencia: incidencia,
+      hora_inicio_real: horaIni,
+      hora_fin_real: horaFin,
+      es_servicio_min: false
+    });
+  }
+
+  cerrarModalCelda();
+  renderCuadrante();
 }
 
 // RECLAMAR DÍA (puesto compartido)
