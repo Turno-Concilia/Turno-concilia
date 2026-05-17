@@ -847,9 +847,13 @@ async function renderSolicitudes() {
 
   // PENDIENTES: solicitudes donde soy la contraparte (me piden a mí) o soy coordinadora
   const pendientes = (data||[]).filter(s => {
-    if (esCoord) return ['pendiente','pendiente_aprobacion'].includes(s.estado);
-    // La contraparte ve tanto pendiente (cambio completo) como pendiente_aprobacion (parcial/devolución)
-    return s.contraparte_id === currentUser.id && ['pendiente','pendiente_aprobacion'].includes(s.estado);
+    if (esCoord) {
+      // Coordinadora solo ve las que ya aceptó la contraparte (pendiente_aprobacion)
+      // y los cambios completos que se aplicaron automáticamente (para informarle)
+      return s.estado === 'pendiente_aprobacion';
+    }
+    // La contraparte ve las pendientes de su respuesta
+    return s.contraparte_id === currentUser.id && s.estado === 'pendiente';
   });
 
   let html = '';
