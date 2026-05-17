@@ -1796,6 +1796,21 @@ async function abrirEditarTrabajadora(id) {
           <option value="superadmin" ${t.rol==='superadmin'?'selected':''}>Superadmin</option>
         </select>
       </div>
+      <div class="form-group">
+        <label class="form-label">Categoría</label>
+        <select class="form-input" id="edit-categoria">
+          <option value="auxiliar" ${t.categoria==='auxiliar'?'selected':''}>Auxiliar</option>
+          <option value="enfermera" ${t.categoria==='enfermera'?'selected':''}>Enfermera</option>
+          <option value="direccion" ${t.categoria==='direccion'?'selected':''}>Dirección</option>
+          <option value="administrativo" ${t.categoria==='administrativo'?'selected':''}>Administrativo</option>
+          <option value="cocina" ${t.categoria==='cocina'?'selected':''}>Cocina</option>
+          <option value="otro" ${t.categoria==='otro'?'selected':''}>Otro</option>
+        </select>
+      </div>
+      <div class="form-group" style="display:flex;align-items:center;justify-content:space-between">
+        <label class="form-label" style="margin:0">Aparece en cuadrante</label>
+        <input type="checkbox" id="edit-cuadrante" ${t.en_cuadrante?'checked':''} style="width:18px;height:18px;cursor:pointer">
+      </div>
       <div class="form-group" style="display:flex;align-items:center;justify-content:space-between">
         <label class="form-label" style="margin:0">Activa en plantilla</label>
         <input type="checkbox" id="edit-activa" ${t.activa?'checked':''} style="width:18px;height:18px;cursor:pointer">
@@ -1828,8 +1843,10 @@ async function guardarEdicion() {
   const email = document.getElementById('edit-email').value.trim();
   const rol = document.getElementById('edit-rol').value;
   const activa = document.getElementById('edit-activa').checked;
+  const categoria = document.getElementById('edit-categoria')?.value || trabajadoraEditando.categoria;
+  const en_cuadrante = document.getElementById('edit-cuadrante')?.checked ?? trabajadoraEditando.en_cuadrante;
 
-  const { error } = await sb.from('trabajadoras').update({ nick, nombre, email, rol, activa })
+  const { error } = await sb.from('trabajadoras').update({ nick, nombre, email, rol, activa, categoria, en_cuadrante })
     .eq('id', trabajadoraEditando.id);
 
   if (error) { alert('Error al guardar. Inténtalo de nuevo.'); return; }
