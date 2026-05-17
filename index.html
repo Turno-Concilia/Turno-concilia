@@ -889,7 +889,7 @@ async function renderSolicitudes() {
       html += `<div class="solicitud-item">
         <div class="sol-avatar" style="background:var(--teal-light);color:var(--teal-dark)">${ini}</div>
         <div class="sol-info">
-          <div class="sol-nombre">${s.solicitante?.nick} · <span style="font-weight:400;color:var(--text-muted)">${tipoCambioLabel}</span></div>
+          <div class="sol-nombre">${s.solicitante?.nick} → <span style="font-weight:600;color:var(--teal-dark)">${s.contraparte?.nick||'—'}</span> · <span style="font-weight:400;color:var(--text-muted)">${tipoCambioLabel}</span></div>
           <div class="sol-detalle">${detalle}</div>
           ${s.motivo?`<div class="sol-detalle" style="font-style:italic">"${s.motivo}"</div>`:''}
           <div class="sol-actions" style="margin-top:6px">
