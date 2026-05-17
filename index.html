@@ -670,11 +670,12 @@ async function iniciarApp() {
   document.getElementById('topbar-user').textContent = currentUser.nick;
   // Mostrar pestaña admin solo para superadmin
   const navAdmin = document.getElementById('nav-admin');
-  if (navAdmin && currentUser && currentUser.rol === 'superadmin') {
-    navAdmin.style.display = 'flex';
-    navAdmin.style.removeProperty('display');
-    navAdmin.removeAttribute('style');
-    navAdmin.style.display = 'flex';
+  if (navAdmin) {
+    if (currentUser && currentUser.rol === 'superadmin') {
+      navAdmin.style.display = 'flex';
+    } else {
+      navAdmin.style.display = 'none';
+    }
   }
   await cargarTrabajadoras();
   renderCuadrante();
@@ -1452,10 +1453,12 @@ async function cargarPerfil() {
 }
 
 function showPage(nombre) {
+  // Proteger panel admin
+  if (nombre === 'admin' && (!currentUser || currentUser.rol !== 'superadmin')) return;
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+nombre).classList.add('active');
-  document.getElementById('nav-'+nombre).classList.add('active');
+  if (document.getElementById('nav-'+nombre)) document.getElementById('nav-'+nombre).classList.add('active');
   if (nombre === 'admin') cargarAdminPanel();
   if (nombre === 'micuadrante') renderMiCuadrante();
 }
@@ -1619,6 +1622,7 @@ async function renderMiCuadrante() {
 // PANEL DE ADMINISTRACIÓN
 // ============================================================
 async function cargarAdminPanel() {
+  if (!currentUser || currentUser.rol !== 'superadmin') return;
   const { data: trabajadoras } = await sb.from('trabajadoras')
     .select('id,nick,nombre,email,rol,activa,auth_id,en_cuadrante')
     .order('nick');
