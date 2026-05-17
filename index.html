@@ -1659,11 +1659,13 @@ async function cargarAdminPanel() {
       (t.rol === 'coordinadora' || t.rol === 'coordinadora_enfermera') ? '#085041' : 
       t.rol === 'enfermera' ? '#185FA5' : '#5F5E5A';
 
+    const rolLabels = {superadmin:'Superadmin',coordinadora:'Coord. aux.',coordinadora_enfermera:'Coord. enf.',enfermera:'Enfermera',auxiliar:'Auxiliar'};
+    const catLabels = {auxiliar:'Auxiliar',enfermera:'Enfermera',direccion:'Dirección',administrativo:'Administrativo',cocina:'Cocina',otro:'Otro'};
     html += `<div class="admin-row">
       <div class="admin-avatar" style="background:${rolColor};color:${rolTextColor}">${ini}</div>
       <div class="admin-info">
-        <div class="admin-nick">${t.nick} <span style="font-size:10px;color:var(--text-muted)">${t.rol}</span></div>
-        <div class="admin-email">${t.email || '—'}</div>
+        <div class="admin-nick">${t.nick} <span style="font-size:10px;color:var(--text-muted)">${rolLabels[t.rol]||t.rol}</span></div>
+        <div class="admin-email">${t.email||'—'} · <span style="font-size:10px">${catLabels[t.categoria]||t.categoria||'—'}</span></div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
         ${estado}
