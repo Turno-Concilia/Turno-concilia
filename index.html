@@ -515,9 +515,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <!-- ADMIN PAGE -->
   <div class="page" id="page-admin">
     <div class="card">
-      <div class="card-title">
-        <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        Gestión de trabajadoras
+      <div class="card-title" style="justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:6px">
+          <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Gestión de trabajadoras
+        </div>
+        <button onclick="abrirNuevaTrabajadora()" style="background:var(--teal-dark);color:white;border:none;border-radius:var(--radius-sm);padding:4px 10px;font-size:11px;font-weight:500;cursor:pointer">+ Nueva</button>
       </div>
       <div id="admin-trabajadoras-lista"></div>
     </div>
@@ -1626,6 +1629,20 @@ async function cargarAdminPanel() {
     return;
   }
 
+  // Añadir botón + Nueva si no existe ya
+  if (!document.getElementById('btn-nueva-trabajadora')) {
+    const cardTitle = document.querySelector('#page-admin .card-title');
+    if (cardTitle) {
+      cardTitle.style.justifyContent = 'space-between';
+      const btn = document.createElement('button');
+      btn.id = 'btn-nueva-trabajadora';
+      btn.textContent = '+ Nueva';
+      btn.onclick = abrirNuevaTrabajadora;
+      btn.style.cssText = 'background:var(--teal-dark);color:white;border:none;border-radius:var(--radius-sm);padding:4px 10px;font-size:11px;font-weight:500;cursor:pointer';
+      cardTitle.appendChild(btn);
+    }
+  }
+
   let html = '';
   trabajadoras.forEach(t => {
     const ini = t.nick.split(' ').map(w=>w[0]).join('').slice(0,2);
@@ -1659,6 +1676,84 @@ async function cargarAdminPanel() {
 }
 
 let trabajadoraEditando = null;
+
+function abrirNuevaTrabajadora() {
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.id = 'modal-editar';
+  modal.innerHTML = `
+    <div class="modal-sheet">
+      <div class="modal-title">
+        Nueva trabajadora
+        <button class="modal-close" onclick="cerrarModal()">✕</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nick (cuadrante)</label>
+        <input class="form-input" id="edit-nick" placeholder="Ej: MARIA GARCIA">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nombre completo</label>
+        <input class="form-input" id="edit-nombre" placeholder="Ej: María García López">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email personal</label>
+        <input class="form-input" type="email" id="edit-email" placeholder="email@ejemplo.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Rol</label>
+        <select class="form-input" id="edit-rol">
+          <option value="auxiliar">Auxiliar</option>
+          <option value="enfermera">Enfermera</option>
+          <option value="coordinadora">Coordinadora auxiliares</option>
+          <option value="coordinadora_enfermera">Coordinadora enfermeras</option>
+          <option value="superadmin">Superadmin</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Categoría</label>
+        <select class="form-input" id="edit-categoria">
+          <option value="auxiliar">Auxiliar</option>
+          <option value="enfermera">Enfermera</option>
+        </select>
+      </div>
+      <div class="form-group" style="display:flex;align-items:center;justify-content:space-between">
+        <label class="form-label" style="margin:0">Aparece en el cuadrante</label>
+        <input type="checkbox" id="edit-cuadrante" checked style="width:18px;height:18px;cursor:pointer">
+      </div>
+      <button class="btn-primary" onclick="guardarNuevaTrabajadora()">Crear trabajadora</button>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+async function guardarNuevaTrabajadora() {
+  const nick = document.getElementById('edit-nick').value.trim();
+  const nombre = document.getElementById('edit-nombre').value.trim();
+  const email = document.getElementById('edit-email').value.trim();
+  const rol = document.getElementById('edit-rol').value;
+  const categoria = document.getElementById('edit-categoria').value;
+  const en_cuadrante = document.getElementById('edit-cuadrante').checked;
+
+  if (!nick || !nombre || !email) {
+    alert('Nick, nombre y email son obligatorios.'); return;
+  }
+
+  const { error } = await sb.from('trabajadoras').insert({
+    nick, nombre, email, rol, categoria, activa: true, en_cuadrante
+  });
+
+  if (error) {
+    alert('Error al crear: ' + error.message); return;
+  }
+
+  // Enviar invitación automáticamente
+  alert(`✓ Trabajadora ${nick} creada correctamente.
+
+Para que pueda acceder a la app, ve al panel de Supabase → Authentication → Invite user e introduce: ${email}
+
+O edita la trabajadora y usa el botón "Enviar invitación".`);
+  cerrarModal();
+  cargarAdminPanel();
+}
 
 async function abrirEditarTrabajadora(id) {
   const { data: t } = await sb.from('trabajadoras').select('*').eq('id', id).single();
