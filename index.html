@@ -855,17 +855,20 @@ async function renderSolicitudes() {
   // PENDIENTES: solicitudes donde soy la contraparte (me piden a mí) o soy coordinadora
   const pendientes = (data||[]).filter(s => {
     if (esCoord) {
-      // Coordinadora solo ve las que ya aceptó la contraparte (pendiente_aprobacion)
-      // y los cambios completos que se aplicaron automáticamente (para informarle)
-      return s.estado === 'pendiente_aprobacion';
+      // Coordinadora ve los cambios aplicados recientemente (últimos 30 días) como registro informativo
+      const hace30dias = new Date(Date.now() - 30*24*60*60*1000).toISOString();
+      return s.estado === 'aprobada' && s.created_at > hace30dias;
     }
     // La contraparte ve las pendientes de su respuesta
     return s.contraparte_id === currentUser.id && s.estado === 'pendiente';
   });
 
   let html = '';
+  if (esCoord && pendientes.length > 0) {
+    html = '<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;padding:0 4px">Registro de cambios aplicados en los últimos 30 días. Puedes deshacer cualquier cambio editando el cuadrante directamente.</div>';
+  }
   if (pendientes.length === 0) {
-    html = '<div class="empty-state">Sin solicitudes pendientes</div>';
+    html += '<div class="empty-state">Sin cambios recientes</div>';
   } else {
     pendientes.forEach(s => {
       const ini = (s.solicitante?.nick||'').split(' ').map(w=>w[0]).join('').slice(0,2);
@@ -891,13 +894,10 @@ async function renderSolicitudes() {
           ${s.motivo?`<div class="sol-detalle" style="font-style:italic">"${s.motivo}"</div>`:''}
           <div class="sol-actions" style="margin-top:6px">
             ${esCoord ? `
-              <button class="btn-accept" onclick="aceptarCambio('${s.id}')">✓ Aprobar</button>
-              <button class="btn-reject" onclick="rechazarCambio('${s.id}')">✗ Vetar</button>
+              <span style="font-size:11px;color:var(--teal-dark)">✓ Aplicado</span>
             ` : (esMiSolicitud && s.estado === 'pendiente') ? `
               <button class="btn-accept" onclick="aceptarCambio('${s.id}')">✓ Aceptar</button>
               <button class="btn-reject" onclick="rechazarCambio('${s.id}')">✗ Rechazar</button>
-            ` : (esMiSolicitud && s.estado === 'pendiente_aprobacion') ? `
-              <span style="font-size:11px;color:var(--amber)">⏳ Pendiente de aprobación de coordinadora</span>
             ` : '<span style="font-size:11px;color:var(--text-muted)">Pendiente de respuesta</span>'}
           </div>
         </div>
@@ -946,44 +946,22 @@ async function aceptarCambio(solicitudId) {
   const { data: sol } = await sb.from('solicitudes').select('*').eq('id', solicitudId).single();
   if (!sol) return;
 
-  const esCoordLocal = ['coordinadora','coordinadora_enfermera','superadmin'].includes(currentUser.rol);
+  // Todos los cambios se aplican cuando la contraparte acepta
+  await sb.from('solicitudes').update({
+    estado: 'aprobada',
+    resuelta_por: currentUser.id,
+    resuelta_en: new Date().toISOString()
+  }).eq('id', solicitudId);
 
-  if (esCoordLocal) {
-    // Coordinadora aprueba — aplicar cambio en el cuadrante
-    await sb.from('solicitudes').update({
-      estado: 'aprobada',
-      resuelta_por: currentUser.id,
-      resuelta_en: new Date().toISOString()
-    }).eq('id', solicitudId);
-
-    if (sol.tipo_cambio === 'completo') {
-      await aplicarCambioCompleto(sol);
-    } else if (sol.tipo_cambio === 'devolucion') {
-      await aplicarCambioDevolucion(sol);
-    } else if (sol.tipo_cambio === 'parcial') {
-      await aplicarCambioParcial(sol);
-    }
-    alert('✓ Cambio aprobado y aplicado en el cuadrante.');
-
-  } else if (sol.tipo_cambio === 'completo') {
-    // Contraparte acepta cambio completo — aplicar directamente y notificar coordinadora
-    await sb.from('solicitudes').update({
-      estado: 'aprobada',
-      resuelta_por: currentUser.id,
-      resuelta_en: new Date().toISOString()
-    }).eq('id', solicitudId);
+  if (sol.tipo_cambio === 'completo') {
     await aplicarCambioCompleto(sol);
-    alert('✓ Cambio aceptado y aplicado. La coordinadora ha sido notificada.');
-
-  } else {
-    // Contraparte acepta parcial/devolución — pasa a pendiente_aprobacion de coordinadora
-    await sb.from('solicitudes').update({
-      estado: 'pendiente_aprobacion',
-      resuelta_por: currentUser.id
-    }).eq('id', solicitudId);
-    alert('✓ Has aceptado el cambio. Pendiente de aprobación de la coordinadora.');
+  } else if (sol.tipo_cambio === 'devolucion') {
+    await aplicarCambioDevolucion(sol);
+  } else if (sol.tipo_cambio === 'parcial') {
+    await aplicarCambioParcial(sol);
   }
 
+  alert('✓ Cambio aceptado y aplicado en el cuadrante.');
   renderSolicitudes();
   renderCuadrante();
 }
@@ -1490,40 +1468,114 @@ async function editarCelda(nick, dia, codActual, labelActual) {
   const turnos = trab.categoria === 'enfermera' ? turnosEnf : turnosAux;
   const incidencias = ['L','F','AP','P','IT','VAC','HE','DH'];
 
+  // Determinar qué está activo actualmente
+  const turnoActivo = incidencias.includes(codActual) ? '' : (codActual || '');
+  const incidenciaActiva = incidencias.includes(codActual) ? codActual : '';
+
   modal.innerHTML = `
     <div class="modal-sheet">
       <div class="modal-title">
-        Editar turno — ${nick} · ${dia}/${mesActual+1}
+        ${nick} · ${dia}/${mesActual+1}
         <button class="modal-close" onclick="cerrarModalCelda()">✕</button>
       </div>
-      <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Turno actual: <strong>${labelActual||'vacío'}</strong></div>
-      
-      <div class="form-group">
-        <label class="form-label">Turno</label>
-        <select class="form-input" id="celda-turno">
-          <option value="">— Sin turno —</option>
-          ${turnos.map(t => `<option value="${t}" ${codActual===t?'selected':''}>${t}</option>`).join('')}
-        </select>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px">Turno actual: <strong>${labelActual||'vacío'}</strong></div>
+
+      <div style="font-size:12px;font-weight:600;margin-bottom:8px">Cambiar turno</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px">
+        ${turnos.map(t => `<button onclick="seleccionarTurnoModal('${t}')" 
+          id="btn-turno-${t}"
+          style="padding:6px 2px;border:1px solid ${turnoActivo===t?'var(--teal-dark)':'var(--border)'};
+          background:${turnoActivo===t?'var(--teal-dark)':'var(--white)'};
+          color:${turnoActivo===t?'white':'var(--text)'};
+          border-radius:var(--radius-sm);font-size:11px;font-weight:500;cursor:pointer">${t}</button>`).join('')}
       </div>
-      <div class="form-group">
-        <label class="form-label">Incidencia (sobreescribe el turno)</label>
-        <select class="form-input" id="celda-incidencia">
-          <option value="">— Sin incidencia —</option>
-          ${incidencias.map(i => `<option value="${i}" ${codActual===i?'selected':''}>${i}</option>`).join('')}
-        </select>
+
+      <div style="font-size:12px;font-weight:600;margin-bottom:8px">O marcar incidencia</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px">
+        ${incidencias.map(i => `<button onclick="seleccionarIncidenciaModal('${i}')"
+          id="btn-inc-${i}"
+          style="padding:6px 2px;border:1px solid ${incidenciaActiva===i?'var(--amber)':'var(--border)'};
+          background:${incidenciaActiva===i?'var(--amber-light)':'var(--white)'};
+          color:${incidenciaActiva===i?'var(--amber)':'var(--text)'};
+          border-radius:var(--radius-sm);font-size:11px;font-weight:500;cursor:pointer">${i}</button>`).join('')}
       </div>
-      <div class="form-group">
-        <label class="form-label">Hora inicio (cambio parcial)</label>
-        <input type="time" class="form-input" id="celda-hora-ini">
+
+      <div style="font-size:12px;font-weight:600;margin-bottom:8px">Horas parciales (opcional)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Desde las</label>
+          <input type="time" class="form-input" id="celda-hora-ini">
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Hasta las</label>
+          <input type="time" class="form-input" id="celda-hora-fin">
+        </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Hora fin (cambio parcial)</label>
-        <input type="time" class="form-input" id="celda-hora-fin">
-      </div>
+
+      <input type="hidden" id="celda-turno-sel" value="${turnoActivo}">
+      <input type="hidden" id="celda-inc-sel" value="${incidenciaActiva}">
       <button class="btn-primary" onclick="guardarCelda('${trab.id}','${fecha}')">Guardar</button>
     </div>`;
 
   document.body.appendChild(modal);
+}
+
+function seleccionarTurnoModal(turno) {
+  // Deseleccionar incidencias
+  document.querySelectorAll('[id^="btn-inc-"]').forEach(b => {
+    b.style.border = '1px solid var(--border)';
+    b.style.background = 'var(--white)';
+    b.style.color = 'var(--text)';
+  });
+  document.getElementById('celda-inc-sel').value = '';
+
+  // Seleccionar/deseleccionar turno
+  const actual = document.getElementById('celda-turno-sel').value;
+  if (actual === turno) {
+    document.getElementById(`btn-turno-${turno}`).style.border = '1px solid var(--border)';
+    document.getElementById(`btn-turno-${turno}`).style.background = 'var(--white)';
+    document.getElementById(`btn-turno-${turno}`).style.color = 'var(--text)';
+    document.getElementById('celda-turno-sel').value = '';
+  } else {
+    document.querySelectorAll('[id^="btn-turno-"]').forEach(b => {
+      b.style.border = '1px solid var(--border)';
+      b.style.background = 'var(--white)';
+      b.style.color = 'var(--text)';
+    });
+    document.getElementById(`btn-turno-${turno}`).style.border = '1px solid var(--teal-dark)';
+    document.getElementById(`btn-turno-${turno}`).style.background = 'var(--teal-dark)';
+    document.getElementById(`btn-turno-${turno}`).style.color = 'white';
+    document.getElementById('celda-turno-sel').value = turno;
+  }
+}
+
+function seleccionarIncidenciaModal(inc) {
+  // Deseleccionar turnos
+  document.querySelectorAll('[id^="btn-turno-"]').forEach(b => {
+    b.style.border = '1px solid var(--border)';
+    b.style.background = 'var(--white)';
+    b.style.color = 'var(--text)';
+  });
+  document.getElementById('celda-turno-sel').value = '';
+
+  // Seleccionar/deseleccionar incidencia
+  const actual = document.getElementById('celda-inc-sel').value;
+  if (actual === inc) {
+    document.getElementById(`btn-inc-${inc}`).style.border = '1px solid var(--border)';
+    document.getElementById(`btn-inc-${inc}`).style.background = 'var(--white)';
+    document.getElementById(`btn-inc-${inc}`).style.color = 'var(--text)';
+    document.getElementById('celda-inc-sel').value = '';
+  } else {
+    document.querySelectorAll('[id^="btn-inc-"]').forEach(b => {
+      b.style.border = '1px solid var(--border)';
+      b.style.background = 'var(--white)';
+      b.style.color = 'var(--text)';
+    });
+    document.getElementById(`btn-inc-${inc}`).style.border = '1px solid var(--amber)';
+    document.getElementById(`btn-inc-${inc}`).style.background = 'var(--amber-light)';
+    document.getElementById(`btn-inc-${inc}`).style.color = 'var(--amber)';
+    document.getElementById('celda-inc-sel').value = inc;
+  }
 }
 
 function cerrarModalCelda() {
@@ -1532,8 +1584,8 @@ function cerrarModalCelda() {
 }
 
 async function guardarCelda(trabajadoraId, fecha) {
-  const turno = document.getElementById('celda-turno').value || null;
-  const incidencia = document.getElementById('celda-incidencia').value || null;
+  const turno = document.getElementById('celda-turno-sel').value || null;
+  const incidencia = document.getElementById('celda-inc-sel').value || null;
   const horaIni = document.getElementById('celda-hora-ini').value || null;
   const horaFin = document.getElementById('celda-hora-fin').value || null;
 
