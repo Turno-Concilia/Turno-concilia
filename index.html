@@ -1629,18 +1629,18 @@ async function cargarAdminPanel() {
     return;
   }
 
-  // Añadir botón + Nueva si no existe ya
-  if (!document.getElementById('btn-nueva-trabajadora')) {
-    const cardTitle = document.querySelector('#page-admin .card-title');
-    if (cardTitle) {
-      cardTitle.style.justifyContent = 'space-between';
-      const btn = document.createElement('button');
-      btn.id = 'btn-nueva-trabajadora';
-      btn.textContent = '+ Nueva';
-      btn.onclick = abrirNuevaTrabajadora;
-      btn.style.cssText = 'background:var(--teal-dark);color:white;border:none;border-radius:var(--radius-sm);padding:4px 10px;font-size:11px;font-weight:500;cursor:pointer';
-      cardTitle.appendChild(btn);
-    }
+  // Añadir botón + Nueva solo si no existe ya (evitar duplicados)
+  const btnExistente = document.getElementById('btn-nueva-trabajadora');
+  if (btnExistente) btnExistente.remove();
+  const cardTitle = document.querySelector('#page-admin .card-title');
+  if (cardTitle) {
+    cardTitle.style.justifyContent = 'space-between';
+    const btn = document.createElement('button');
+    btn.id = 'btn-nueva-trabajadora';
+    btn.textContent = '+ Nueva';
+    btn.onclick = abrirNuevaTrabajadora;
+    btn.style.cssText = 'background:var(--teal-dark);color:white;border:none;border-radius:var(--radius-sm);padding:4px 10px;font-size:11px;font-weight:500;cursor:pointer';
+    cardTitle.appendChild(btn);
   }
 
   let html = '';
