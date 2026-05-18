@@ -1564,7 +1564,7 @@ async function editarCelda(nick, dia, codActual, labelActual) {
       <div style="font-size:12px;font-weight:600;margin-bottom:8px">Cambiar turno</div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px">
         ${turnos.map(t => `<button onclick="seleccionarTurnoModal('${t}')" 
-          id="btn-turno-${t}"
+          id="btn-turno-${t.replace(/-/g,'_')}"
           style="padding:6px 2px;border:1px solid ${turnoActivo===t?'var(--teal-dark)':'var(--border)'};
           background:${turnoActivo===t?'var(--teal-dark)':'var(--white)'};
           color:${turnoActivo===t?'white':'var(--text)'};
@@ -1602,6 +1602,7 @@ async function editarCelda(nick, dia, codActual, labelActual) {
 }
 
 function seleccionarTurnoModal(turno) {
+  const safeId = turno.replace(/-/g,'_');
   // Deseleccionar incidencias
   document.querySelectorAll('[id^="btn-inc-"]').forEach(b => {
     b.style.border = '1px solid var(--border)';
@@ -1613,9 +1614,9 @@ function seleccionarTurnoModal(turno) {
   // Seleccionar/deseleccionar turno
   const actual = document.getElementById('celda-turno-sel').value;
   if (actual === turno) {
-    document.getElementById(`btn-turno-${turno}`).style.border = '1px solid var(--border)';
-    document.getElementById(`btn-turno-${turno}`).style.background = 'var(--white)';
-    document.getElementById(`btn-turno-${turno}`).style.color = 'var(--text)';
+    document.getElementById(`btn-turno-${safeId}`).style.border = '1px solid var(--border)';
+    document.getElementById(`btn-turno-${safeId}`).style.background = 'var(--white)';
+    document.getElementById(`btn-turno-${safeId}`).style.color = 'var(--text)';
     document.getElementById('celda-turno-sel').value = '';
   } else {
     document.querySelectorAll('[id^="btn-turno-"]').forEach(b => {
@@ -1623,9 +1624,9 @@ function seleccionarTurnoModal(turno) {
       b.style.background = 'var(--white)';
       b.style.color = 'var(--text)';
     });
-    document.getElementById(`btn-turno-${turno}`).style.border = '1px solid var(--teal-dark)';
-    document.getElementById(`btn-turno-${turno}`).style.background = 'var(--teal-dark)';
-    document.getElementById(`btn-turno-${turno}`).style.color = 'white';
+    document.getElementById(`btn-turno-${safeId}`).style.border = '1px solid var(--teal-dark)';
+    document.getElementById(`btn-turno-${safeId}`).style.background = 'var(--teal-dark)';
+    document.getElementById(`btn-turno-${safeId}`).style.color = 'white';
     document.getElementById('celda-turno-sel').value = turno;
   }
 }
