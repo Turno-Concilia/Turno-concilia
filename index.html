@@ -1,0 +1,2165 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0F6E56">
+<meta name="description" content="Gestión de turnos — Residencia Santa Llúcia, Dénia">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mi Turno Concilia">
+<title>Mi Turno Concilia</title>
+<!-- v2.1 -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --teal:#1D9E75;--teal-dark:#0F6E56;--teal-light:#E1F5EE;
+  --amber:#BA7517;--amber-light:#FAEEDA;
+  --purple:#534AB7;--purple-light:#EEEDFE;
+  --green:#3B6D11;--green-light:#EAF3DE;
+  --pink:#993556;--pink-light:#FBEAF0;
+  --red:#A32D2D;--red-light:#FCEBEB;
+  --blue:#185FA5;--blue-light:#E6F1FB;
+  --gray:#5F5E5A;--gray-light:#F1EFE8;
+  --bg:#F5F5F3;--white:#FFFFFF;
+  --border:rgba(0,0,0,0.1);--text:#2C2C2A;--text-muted:#888780;
+  --radius:10px;--radius-sm:6px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:14px;min-height:100vh;padding-bottom:70px}
+
+/* TOPBAR */
+.topbar{background:var(--teal-dark);color:white;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.topbar-title{font-size:16px;font-weight:600}
+.topbar-sub{font-size:11px;opacity:.8;margin-top:1px}
+.topbar-user{font-size:12px;opacity:.9}
+.btn-logout{background:rgba(255,255,255,.15);border:none;color:white;padding:4px 10px;border-radius:20px;font-size:11px;cursor:pointer}
+
+/* BOTTOM NAV */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:0.5px solid var(--border);display:flex;z-index:100;padding-bottom:env(safe-area-inset-bottom)}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;padding:8px 4px;font-size:10px;color:var(--text-muted);cursor:pointer;border:none;background:none;gap:3px;transition:color .15s}
+.nav-item.active{color:var(--teal-dark)}
+.nav-item svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* PAGES */
+.page{display:none;padding:16px}
+.page.active{display:block}
+
+/* CARDS */
+.card{background:var(--white);border-radius:var(--radius);border:0.5px solid var(--border);padding:14px 16px;margin-bottom:12px}
+.card-title{font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.card-title svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2}
+
+/* LOGIN */
+#page-login{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:32px 24px;background:var(--white)}
+.login-logo{width:96px;height:96px;background:none;border-radius:16px;display:flex;align-items:center;justify-content:center;margin-bottom:20px}
+.login-logo svg{width:96px;height:96px;stroke:white;fill:none;stroke-width:1.8}
+.login-title{font-size:22px;font-weight:700;margin-bottom:4px}
+.login-sub{font-size:13px;color:var(--text-muted);margin-bottom:32px;text-align:center}
+.form-group{width:100%;max-width:360px;margin-bottom:14px}
+.form-label{font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:6px;display:block;text-transform:uppercase;letter-spacing:.4px}
+.form-input{width:100%;padding:11px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px;background:var(--bg);color:var(--text);outline:none;transition:border-color .15s}
+.form-input:focus{border-color:var(--teal)}
+.btn-primary{width:100%;max-width:360px;padding:12px;background:#185FA5;color:white;border:none;border-radius:var(--radius-sm);font-size:15px;font-weight:600;cursor:pointer;margin-top:4px;transition:background .15s}
+.btn-primary:hover{background:#0C447C}
+.login-error{color:var(--red);font-size:12px;margin-top:8px;text-align:center;max-width:360px}
+.login-demo{margin-top:20px;font-size:12px;color:var(--text-muted);text-align:center;max-width:360px}
+.demo-btn{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);font-size:12px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:8px;color:var(--text);margin-top:6px}
+.demo-badge{padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600}
+
+/* CUADRANTE */
+.mes-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.mes-nav button{width:32px;height:32px;border:0.5px solid var(--border);border-radius:var(--radius-sm);background:var(--white);cursor:pointer;display:flex;align-items:center;justify-content:center}
+.mes-nav button svg{width:16px;height:16px;stroke:var(--text);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.mes-titulo{font-size:15px;font-weight:600}
+.leyenda{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.leyenda-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-muted)}
+.leyenda-dot{width:10px;height:10px;border-radius:3px}
+.cuadrante-wrap{overflow-x:auto;border-radius:var(--radius);border:0.5px solid var(--border)}
+.cuadrante-tabla{border-collapse:collapse;font-size:11px;min-width:100%;background:var(--white)}
+.cuadrante-tabla th{background:var(--gray-light);padding:5px 4px;text-align:center;font-weight:600;border-right:0.5px solid var(--border);border-bottom:0.5px solid var(--border);white-space:nowrap;font-size:10px;color:var(--gray)}
+.cuadrante-tabla th.col-nombre{text-align:left;padding-left:10px;min-width:90px;position:sticky;left:0;z-index:2;background:var(--gray-light)}
+.cuadrante-tabla td{padding:3px 2px;text-align:center;border-right:0.5px solid var(--border);border-bottom:0.5px solid var(--border);min-width:30px}
+.cuadrante-tabla td.nombre-cel{text-align:left;padding-left:10px;font-weight:500;white-space:nowrap;font-size:11px;position:sticky;left:0;background:var(--white);z-index:1}
+.cuadrante-tabla tr:last-child td{border-bottom:none}
+.cuadrante-tabla tr.fila-propia td{background:#F0FBF7!important}
+.cuadrante-tabla tr.fila-propia td.nombre-cel{background:#E1F5EE!important}
+.turno-pill{display:inline-block;padding:2px 3px;border-radius:3px;font-size:9px;font-weight:600;min-width:24px;text-align:center}
+.t-M{background:var(--teal-light);color:var(--teal-dark)}
+.t-CD{background:var(--green-light);color:var(--green)}
+.t-T{background:var(--amber-light);color:var(--amber)}
+.t-TC{background:var(--pink-light);color:var(--pink)}
+.t-N{background:var(--purple-light);color:var(--purple)}
+.t-L{background:var(--gray-light);color:var(--gray)}
+.t-F{background:var(--gray-light);color:var(--gray)}
+.t-AP{background:var(--blue-light);color:var(--blue)}
+.t-P{background:var(--blue-light);color:var(--blue)}
+.t-HE{background:var(--red-light);color:var(--red)}
+.t-DH{background:var(--blue-light);color:var(--blue)}
+.t-IT{background:var(--red-light);color:var(--red)}
+.t-VAC{background:var(--green-light);color:var(--green)}
+.t-SA{background:#FAEEDA;color:#854F0B;border:1px dashed #BA7517;cursor:pointer}
+.col-findes{background:#FAFAF8}
+.col-hoy{background:#FFF8E6!important}
+
+/* SM */
+.sm-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:7px 0;border-bottom:0.5px solid var(--border)}
+.sm-row:last-child{border-bottom:none}
+.sm-num{font-weight:600;font-size:14px}
+.estado-ok{color:var(--teal-dark)}
+.estado-warn{color:var(--amber)}
+.estado-red{color:var(--red)}
+.dot-ok{width:8px;height:8px;border-radius:50%;background:var(--teal);display:inline-block;margin-right:4px}
+.dot-red{width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block;margin-right:4px}
+
+/* SOLICITUDES */
+.tabs{display:flex;gap:6px;margin-bottom:14px}
+.tab-btn{flex:1;padding:7px;border:0.5px solid var(--border);border-radius:var(--radius-sm);font-size:12px;cursor:pointer;background:var(--white);color:var(--text-muted);font-weight:500;transition:all .15s}
+.tab-btn.active{background:var(--teal-dark);color:white;border-color:var(--teal-dark)}
+.solicitud-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:0.5px solid var(--border)}
+.solicitud-item:last-child{border-bottom:none}
+.sol-avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0}
+.sol-info{flex:1;min-width:0}
+.sol-nombre{font-size:13px;font-weight:500}
+.sol-detalle{font-size:11px;color:var(--text-muted);margin-top:2px}
+.sol-actions{display:flex;gap:6px;margin-top:6px}
+.btn-accept{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;border:none;cursor:pointer;background:var(--teal-light);color:var(--teal-dark)}
+.btn-reject{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;border:none;cursor:pointer;background:var(--red-light);color:var(--red)}
+.badge-estado{padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;white-space:nowrap}
+.badge-pendiente{background:var(--amber-light);color:var(--amber)}
+.badge-aprobada{background:var(--teal-light);color:var(--teal-dark)}
+.badge-vetada{background:var(--red-light);color:var(--red)}
+
+/* PERFIL */
+.perfil-header{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+.perfil-avatar{width:56px;height:56px;border-radius:50%;background:var(--teal-light);color:var(--teal-dark);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;flex-shrink:0}
+.perfil-nombre{font-size:17px;font-weight:600}
+.perfil-rol{font-size:12px;color:var(--text-muted);margin-top:2px}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.stat-box{background:var(--bg);border-radius:var(--radius-sm);padding:10px 6px;text-align:center}
+.stat-num{font-size:20px;font-weight:700}
+.stat-lbl{font-size:10px;color:var(--text-muted);margin-top:2px}
+
+/* LOADING */
+.loading{text-align:center;padding:32px;color:var(--text-muted);font-size:13px}
+.spinner{width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 10px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty-state{text-align:center;padding:32px 16px;color:var(--text-muted);font-size:13px}
+.tipo-cambio-btn{flex:1;padding:10px 6px;border:0.5px solid var(--border);border-radius:var(--radius);background:var(--white);cursor:pointer;text-align:center;transition:all .15s}
+.tipo-cambio-btn.active{border-color:var(--blue);background:var(--blue-light)}
+.cat-btn{flex:1;padding:7px 12px;border:0.5px solid var(--border);border-radius:var(--radius-sm);background:var(--white);cursor:pointer;text-align:center;transition:all .15s}
+.cat-btn.active{background:var(--teal-dark);color:white;border-color:var(--teal-dark)}
+.deuda-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:0.5px solid var(--border)}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:16px}
+.cal-header{text-align:center;font-size:11px;font-weight:600;color:var(--text-muted);padding:4px 0}
+.cal-dia{border-radius:var(--radius-sm);padding:4px 2px;min-height:56px;display:flex;flex-direction:column;align-items:center;gap:2px;border:0.5px solid var(--border);background:var(--white)}
+.cal-dia.otro-mes{background:var(--bg);border-color:transparent}
+.cal-dia.hoy{border-color:var(--teal);border-width:2px}
+.cal-dia.finde{background:#FAFAF8}
+.cal-num{font-size:11px;font-weight:500;color:var(--text-muted)}
+.cal-turno{font-size:10px;font-weight:600;padding:2px 4px;border-radius:3px;text-align:center;width:100%}
+.cal-horario{font-size:9px;color:var(--text-muted);text-align:center}
+.parcial-hidden{display:none!important}
+.deuda-item:last-child{border-bottom:none}
+.deuda-saldo{font-size:13px;font-weight:600}
+.deuda-positivo{color:var(--teal-dark)}
+.deuda-negativo{color:var(--red)}
+.admin-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:0.5px solid var(--border)}
+.admin-row:last-child{border-bottom:none}
+.admin-avatar{width:34px;height:34px;border-radius:50%;background:var(--teal-light);color:var(--teal-dark);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0}
+.admin-info{flex:1;min-width:0}
+.admin-nick{font-size:13px;font-weight:500}
+.admin-email{font-size:11px;color:var(--text-muted);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.badge-vinculada{background:var(--teal-light);color:var(--teal-dark);padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600}
+.badge-pendiente{background:var(--amber-light);color:var(--amber);padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600}
+.badge-inactiva{background:var(--gray-light);color:var(--gray);padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:200;display:flex;align-items:flex-end;justify-content:center}
+.modal-sheet{background:var(--white);border-radius:16px 16px 0 0;padding:20px;width:100%;max-width:480px;max-height:85vh;overflow-y:auto}
+.modal-title{font-size:16px;font-weight:600;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center}
+.modal-close{background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-muted);padding:0}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="page-login">
+  <div class="login-logo" style="background:none;width:96px;height:96px">
+    <svg width="96" height="96" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+      <defs><clipPath id="lcp"><rect width="80" height="80" rx="18"/></clipPath></defs>
+      <g clip-path="url(#lcp)">
+        <rect x="0" y="0" width="40" height="80" fill="#0C447C"/>
+        <rect x="40" y="0" width="40" height="80" fill="#185FA5"/>
+      </g>
+      <circle cx="16" cy="18" r="6" fill="#B5D4F4"/>
+      <line x1="16" y1="9"  x2="16" y2="7"  stroke="#B5D4F4" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="16" y1="27" x2="16" y2="29" stroke="#B5D4F4" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="7"  y1="18" x2="5"  y2="18" stroke="#B5D4F4" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="25" y1="18" x2="27" y2="18" stroke="#B5D4F4" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="10" y1="12" x2="8"  y2="10" stroke="#B5D4F4" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="22" y1="12" x2="24" y2="10" stroke="#B5D4F4" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="10" y1="24" x2="8"  y2="26" stroke="#B5D4F4" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="22" y1="24" x2="24" y2="26" stroke="#B5D4F4" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M 4 38 A 12 12 0 0 1 28 38 Z" fill="#B5D4F4"/>
+      <path d="M 70 12 A 7 7 0 1 1 58 18 A 4.5 4.5 0 1 0 70 12 Z" fill="white"/>
+      <polygon points="57,9.5 58,11.7 60.5,11.7 58.5,13.2 59.2,15.5 57,14 54.8,15.5 55.5,13.2 53.5,11.7 56,11.7" fill="white"/>
+      <polygon points="64,9.5 65,11.7 67.5,11.7 65.5,13.2 66.2,15.5 64,14 61.8,15.5 62.5,13.2 60.5,11.7 63,11.7" fill="white"/>
+      <path d="M 52 38 A 12 12 0 0 1 76 38 Z" fill="white"/>
+      <line x1="30" y1="32" x2="50" y2="32" stroke="#E6F1FB" stroke-width="2" stroke-linecap="round"/>
+      <path d="M47 29 L50 32 L47 35" fill="none" stroke="#E6F1FB" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="50" y1="40" x2="30" y2="40" stroke="#E6F1FB" stroke-width="2" stroke-linecap="round"/>
+      <path d="M33 37 L30 40 L33 43" fill="none" stroke="#E6F1FB" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+  <div class="login-title">Mi Turno Concilia</div>
+  <div class="login-sub">Residencia Santa Llúcia · Dénia</div>
+  <div class="form-group">
+    <label class="form-label">Email</label>
+    <input class="form-input" type="email" id="login-email" placeholder="tu@email.com">
+  </div>
+  <div class="form-group">
+    <label class="form-label">Contraseña</label>
+    <input class="form-input" type="password" id="login-pass" placeholder="••••••••">
+  </div>
+  <button class="btn-primary" onclick="doLogin()">Entrar</button>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('login-pass').addEventListener('keydown', e => {
+        if (e.key === 'Enter') doLogin();
+      });
+    });
+  </script>
+  <div id="login-error" class="login-error" style="display:none"></div>
+  <div class="login-demo">
+    <div style="margin-bottom:6px;font-size:11px;color:var(--text-muted)">— Acceso demo (solo para pruebas) —</div>
+    <div style="display:flex;gap:6px;max-width:360px;width:100%;flex-wrap:wrap">
+      <button class="demo-btn" style="flex:1;justify-content:center" onclick="loginDemo('superadmin')">
+        <span class="demo-badge" style="background:#EEEDFE;color:#3C3489">Admin</span>
+      </button>
+      <button class="demo-btn" style="flex:1;justify-content:center" onclick="loginDemo('coordinadora')">
+        <span class="demo-badge" style="background:#E1F5EE;color:#085041">Coord.</span>
+      </button>
+      <button class="demo-btn" style="flex:1;justify-content:center" onclick="loginDemo('auxiliar')">
+        <span class="demo-badge" style="background:#FAEEDA;color:#633806">Inma</span>
+      </button>
+      <button class="demo-btn" style="flex:1;justify-content:center" onclick="loginDemo('auxiliar2')">
+        <span class="demo-badge" style="background:#FAEEDA;color:#633806">Ana G.</span>
+      </button>
+      <button class="demo-btn" style="flex:1;justify-content:center" onclick="loginDemo('enfermera')">
+        <span class="demo-badge" style="background:#E6F1FB;color:#185FA5">Ana P.</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- CAMBIO DE CONTRASEÑA (primera vez) -->
+<div id="page-cambio-pass" style="display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:32px 24px;background:white">
+  <svg width="56" height="56" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg" style="margin-bottom:20px">
+    <defs><clipPath id="cpx"><rect width="80" height="80" rx="18"/></clipPath></defs>
+    <g clip-path="url(#cpx)">
+      <rect x="0" y="0" width="40" height="80" fill="#0C447C"/>
+      <rect x="40" y="0" width="40" height="80" fill="#185FA5"/>
+    </g>
+    <circle cx="16" cy="18" r="6" fill="#B5D4F4"/>
+    <path d="M 4 38 A 12 12 0 0 1 28 38 Z" fill="#B5D4F4"/>
+    <path d="M 70 12 A 7 7 0 1 1 58 18 A 4.5 4.5 0 1 0 70 12 Z" fill="white"/>
+    <path d="M 52 38 A 12 12 0 0 1 76 38 Z" fill="white"/>
+  </svg>
+  <div style="font-size:22px;font-weight:700;margin-bottom:6px">Bienvenida</div>
+  <div style="font-size:13px;color:#888;margin-bottom:28px;text-align:center">Elige tu contraseña para acceder a Mi Turno Concilia</div>
+  <div class="form-group">
+    <label class="form-label">Nueva contraseña</label>
+    <input class="form-input" type="password" id="nueva-pass" placeholder="Mínimo 8 caracteres">
+  </div>
+  <div class="form-group">
+    <label class="form-label">Repite la contraseña</label>
+    <input class="form-input" type="password" id="nueva-pass2" placeholder="Repite la contraseña">
+  </div>
+  <div id="cambio-pass-error" style="display:none;color:#A32D2D;font-size:12px;margin-bottom:8px;max-width:360px;text-align:center"></div>
+  <button class="btn-primary" onclick="guardarNuevaPassword()">Guardar y entrar</button>
+</div>
+
+<!-- APP -->
+<div id="app-shell" style="display:none">
+  <div class="topbar" style="background:linear-gradient(to right,#0C447C 50%,#185FA5 50%)">
+    <div style="display:flex;align-items:center;gap:10px">
+      <svg width="32" height="32" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+        <defs><clipPath id="tcp"><rect width="80" height="80" rx="18"/></clipPath></defs>
+        <g clip-path="url(#tcp)">
+          <rect x="0" y="0" width="40" height="80" fill="rgba(255,255,255,0.12)"/>
+          <rect x="40" y="0" width="40" height="80" fill="rgba(255,255,255,0.08)"/>
+        </g>
+        <circle cx="16" cy="18" r="6" fill="#B5D4F4"/>
+        <line x1="16" y1="9"  x2="16" y2="7"  stroke="#B5D4F4" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="16" y1="27" x2="16" y2="29" stroke="#B5D4F4" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="7"  y1="18" x2="5"  y2="18" stroke="#B5D4F4" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="25" y1="18" x2="27" y2="18" stroke="#B5D4F4" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="10" y1="12" x2="8"  y2="10" stroke="#B5D4F4" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="22" y1="12" x2="24" y2="10" stroke="#B5D4F4" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="10" y1="24" x2="8"  y2="26" stroke="#B5D4F4" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="22" y1="24" x2="24" y2="26" stroke="#B5D4F4" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M 4 38 A 12 12 0 0 1 28 38 Z" fill="#B5D4F4"/>
+        <path d="M 70 12 A 7 7 0 1 1 58 18 A 4.5 4.5 0 1 0 70 12 Z" fill="white"/>
+        <polygon points="57,9.5 58,11.7 60.5,11.7 58.5,13.2 59.2,15.5 57,14 54.8,15.5 55.5,13.2 53.5,11.7 56,11.7" fill="white"/>
+        <polygon points="64,9.5 65,11.7 67.5,11.7 65.5,13.2 66.2,15.5 64,14 61.8,15.5 62.5,13.2 60.5,11.7 63,11.7" fill="white"/>
+        <path d="M 52 38 A 12 12 0 0 1 76 38 Z" fill="white"/>
+        <line x1="30" y1="32" x2="50" y2="32" stroke="#E6F1FB" stroke-width="2" stroke-linecap="round"/>
+        <path d="M47 29 L50 32 L47 35" fill="none" stroke="#E6F1FB" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="50" y1="40" x2="30" y2="40" stroke="#E6F1FB" stroke-width="2" stroke-linecap="round"/>
+        <path d="M33 37 L30 40 L33 43" fill="none" stroke="#E6F1FB" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div>
+        <div class="topbar-title">Mi Turno Concilia</div>
+        <div class="topbar-sub">Residencia Santa Llúcia</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span class="topbar-user" id="topbar-user"></span>
+      <button class="btn-logout" onclick="doLogout()">Salir</button>
+    </div>
+  </div>
+
+  <!-- CUADRANTE -->
+  <div class="page active" id="page-cuadrante">
+    <div class="mes-nav">
+      <button onclick="cambiarMes(-1)"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <span class="mes-titulo" id="mes-titulo"></span>
+      <button onclick="cambiarMes(1)"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
+    </div>
+    <!-- Selector de categoría -->
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      <button class="cat-btn active" id="cat-auxiliar" onclick="selCategoria('auxiliar',this)">
+        <span style="font-size:11px;font-weight:500">Auxiliares</span>
+      </button>
+      <button class="cat-btn" id="cat-enfermera" onclick="selCategoria('enfermera',this)">
+        <span style="font-size:11px;font-weight:500">Enfermeras</span>
+      </button>
+    </div>
+
+    <div class="leyenda">
+      <div class="leyenda-item"><div class="leyenda-dot" style="background:#E1F5EE;border:1px solid #1D9E75"></div>Mañana res.</div>
+      <div class="leyenda-item"><div class="leyenda-dot" style="background:#EAF3DE;border:1px solid #3B6D11"></div>Mañana CD</div>
+      <div class="leyenda-item"><div class="leyenda-dot" style="background:#FAEEDA;border:1px solid #BA7517"></div>Tarde res.</div>
+      <div class="leyenda-item"><div class="leyenda-dot" style="background:#FBEAF0;border:1px solid #993556"></div>Tarde CD</div>
+      <div class="leyenda-item"><div class="leyenda-dot" style="background:#EEEDFE;border:1px solid #534AB7"></div>Noche</div>
+      <div class="leyenda-item"><div class="leyenda-dot" style="background:#FCEBEB;border:1px solid #A32D2D"></div>HE/IT</div>
+      <div class="leyenda-item"><div class="leyenda-dot" style="background:#FAEEDA;border:1px dashed #BA7517"></div>Sin asignar</div>
+    </div>
+    <div id="cuadrante-container"><div class="loading"><div class="spinner"></div>Cargando cuadrante...</div></div>
+  </div>
+
+  <!-- PLANTILLA -->
+  <div class="page" id="page-sm">
+    <div class="card">
+      <div class="card-title"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Plantilla efectiva hoy</div>
+      <div id="sm-hoy"><div class="loading"><div class="spinner"></div></div></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Esta semana</div>
+      <div id="sm-semana"></div>
+    </div>
+  </div>
+
+  <!-- SOLICITUDES -->
+  <div class="page" id="page-solicitudes">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchSolTab('pendientes',this)">Pendientes</button>
+      <button class="tab-btn" onclick="switchSolTab('mis',this)">Mis cambios</button>
+      <button class="tab-btn" onclick="switchSolTab('deudas',this)">Deudas</button>
+      <button class="tab-btn" onclick="switchSolTab('nueva',this)">+ Cambio</button>
+      <button class="tab-btn" onclick="switchSolTab('permiso',this)">+ Permiso</button>
+    </div>
+
+    <!-- PENDIENTES -->
+    <div id="sol-pendientes"></div>
+
+    <!-- MIS CAMBIOS -->
+    <div id="sol-mis" style="display:none"></div>
+
+    <!-- DEUDAS ENTRE COMPAÑERAS -->
+    <div id="sol-deudas" style="display:none"></div>
+
+    <!-- PETICIÓN DE PERMISO/INCIDENCIA -->
+    <div id="sol-permiso" style="display:none">
+      <div class="card">
+        <div class="card-title">Petición de permiso o incidencia</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">
+          La coordinadora recibirá tu petición y la aprobará o rechazará. Si se aprueba, lo marcará en el cuadrante.
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tipo de permiso</label>
+          <select class="form-input" id="perm-tipo">
+            <option value="AP">AP — Asunto propio</option>
+            <option value="VAC">VAC — Vacaciones</option>
+            <option value="P">P — Permiso retribuido</option>
+            <option value="DH">DH — Día de huelga compensado</option>
+            <option value="HE">HE — Hora extra compensada</option>
+          </select>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="form-group">
+            <label class="form-label">Fecha inicio</label>
+            <input type="date" class="form-input" id="perm-fecha-ini">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Fecha fin</label>
+            <input type="date" class="form-input" id="perm-fecha-fin">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Motivo (opcional)</label>
+          <input type="text" class="form-input" id="perm-motivo" placeholder="Describe el motivo si lo deseas">
+        </div>
+        <div style="background:var(--amber-light);border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;color:var(--amber);margin-bottom:12px">
+          ⚠️ Esta petición requiere aprobación de la coordinadora.
+        </div>
+        <button class="btn-primary" onclick="enviarPermiso()">Enviar petición</button>
+      </div>
+    </div>
+
+    <!-- NUEVA SOLICITUD -->
+    <div id="sol-nueva" style="display:none">
+      <div class="card">
+        <div class="card-title">Tipo de cambio</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
+          <button class="tipo-cambio-btn active" onclick="selTipoCambio('completo',this)">
+            <div style="font-size:18px">↔️</div>
+            <div style="font-size:11px;margin-top:4px;font-weight:500">Cambio completo</div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:2px">Intercambio de días</div>
+          </button>
+          <button class="tipo-cambio-btn" onclick="selTipoCambio('devolucion',this)">
+            <div style="font-size:18px">⏳</div>
+            <div style="font-size:11px;margin-top:4px;font-weight:500">Devolución posterior</div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:2px">Le cubres, te devuelve después</div>
+          </button>
+          <button class="tipo-cambio-btn" onclick="selTipoCambio('parcial',this)">
+            <div style="font-size:18px">⏱️</div>
+            <div style="font-size:11px;margin-top:4px;font-weight:500">Parcial por horas</div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:2px">Mín. 1 hora</div>
+          </button>
+        </div>
+
+        <!-- CAMPOS COMUNES -->
+        <div class="form-group">
+          <label class="form-label">Compañera</label>
+          <select class="form-input" id="sol-contraparte">
+            <option value="">Selecciona compañera...</option>
+          </select>
+        </div>
+
+        <!-- YO LE HAGO: su día/turno + horas parciales -->
+        <div style="background:var(--blue-light);border-radius:var(--radius);padding:12px;margin-bottom:10px">
+          <div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:4px">Yo le hago...</div>
+          <div style="font-size:11px;color:var(--blue);opacity:.8;margin-bottom:8px">El día de ella que yo voy a cubrir</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label">Su día</label>
+              <input type="date" class="form-input" id="sol-fecha-b">
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label">Su turno</label>
+              <select class="form-input" id="sol-turno-b">
+                <option value="">Selecciona fecha</option>
+              </select>
+            </div>
+          </div>
+          <div id="campos-parcial" style="display:none">
+            <div id="horario-turno-b" style="font-size:11px;color:var(--blue);margin-bottom:6px;font-style:italic"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">Yo entro a las</label>
+                <input type="time" class="form-input" id="sol-hora-ini-b2">
+              </div>
+              <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">Yo salgo a las</label>
+                <input type="time" class="form-input" id="sol-hora-fin-b2">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ELLA ME DEVUELVE: mi día/turno + horas parciales -->
+        <div id="campos-b" style="background:var(--teal-light);border-radius:var(--radius);padding:12px;margin-bottom:10px">
+          <div style="font-size:12px;font-weight:600;color:var(--teal-dark);margin-bottom:4px" id="label-campos-b">Ella me devuelve...</div>
+          <div style="font-size:11px;color:var(--teal-dark);opacity:.8;margin-bottom:8px" id="sublabel-campos-b">El día mío que ella va a cubrir</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label">Mi día</label>
+              <input type="date" class="form-input" id="sol-fecha-ini">
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label">Mi turno</label>
+              <select class="form-input" id="sol-turno-a">
+                <option value="">Selecciona fecha</option>
+              </select>
+            </div>
+          </div>
+          <div id="campos-parcial-b" style="display:none">
+            <div id="horario-turno-a" style="font-size:11px;color:var(--teal-dark);margin-bottom:6px;font-style:italic"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">Ella entra a las</label>
+                <input type="time" class="form-input" id="sol-hora-ini-a2">
+              </div>
+              <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">Ella sale a las</label>
+                <input type="time" class="form-input" id="sol-hora-fin">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Resumen horas -->
+        <div id="horas-calculo" style="border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;margin-bottom:10px;display:none"></div>
+
+                <div class="form-group">
+          <label class="form-label">Motivo (opcional)</label>
+          <input type="text" class="form-input" id="sol-motivo" placeholder="Describe el motivo si lo deseas">
+        </div>
+
+        <div id="sol-aviso-aprobacion" style="background:var(--amber-light);border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;color:var(--amber);margin-bottom:10px;display:none">
+          ⚠️ Este tipo de cambio requiere aprobación de la coordinadora.
+        </div>
+
+        <button class="btn-primary" onclick="enviarSolicitud()">Enviar solicitud</button>
+      </div>
+    </div>
+  </div>
+  <!-- PERFIL -->
+  <div class="page" id="page-perfil">
+    <div class="card">
+      <div class="perfil-header">
+        <div class="perfil-avatar" id="perfil-avatar"></div>
+        <div>
+          <div class="perfil-nombre" id="perfil-nombre"></div>
+          <div class="perfil-rol" id="perfil-rol"></div>
+        </div>
+      </div>
+      <div class="stats-grid" id="perfil-stats"></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Bolsa de horas extra</div>
+      <div id="he-lista"><div class="empty-state">Sin horas extra pendientes</div></div>
+    </div>
+  </div>
+
+  <!-- MI CUADRANTE PAGE -->
+  <div class="page" id="page-micuadrante">
+    <div class="mes-nav">
+      <button onclick="cambiarMesMio(-1)"><svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:var(--text);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <span class="mes-titulo" id="mes-titulo-mio"></span>
+      <button onclick="cambiarMesMio(1)"><svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:var(--text);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><polyline points="9 18 15 12 9 6"/></svg></button>
+    </div>
+    <div id="micuadrante-container"></div>
+  </div>
+
+  <!-- ADMIN PAGE -->
+  <div class="page" id="page-admin">
+    <div class="card">
+      <div class="card-title" style="justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:6px">
+          <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Gestión de trabajadoras
+        </div>
+        <button onclick="abrirNuevaTrabajadora()" style="background:var(--teal-dark);color:white;border:none;border-radius:var(--radius-sm);padding:4px 10px;font-size:11px;font-weight:500;cursor:pointer">+ Nueva</button>
+      </div>
+      <div id="admin-trabajadoras-lista"></div>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <button class="nav-item active" id="nav-cuadrante" onclick="showPage('cuadrante')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Cuadrante
+    </button>
+    <button class="nav-item" id="nav-sm" onclick="showPage('sm')">
+      <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Plantilla
+    </button>
+    <button class="nav-item" id="nav-solicitudes" onclick="showPage('solicitudes')">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>Solicitudes
+    </button>
+    <button class="nav-item" id="nav-perfil" onclick="showPage('perfil')">
+      <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Mi perfil
+    </button>
+    <button class="nav-item" id="nav-micuadrante" onclick="showPage('micuadrante')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><circle cx="8" cy="14" r="1" fill="currentColor"/><circle cx="12" cy="14" r="1" fill="currentColor"/><circle cx="16" cy="14" r="1" fill="currentColor"/></svg>Mi turno
+    </button>
+    <button class="nav-item" id="nav-admin" onclick="showPage('admin')" style="display:none">
+      <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Admin
+    </button>
+  </nav>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://apcidgsjefltilrzegof.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFwY2lkZ3NqZWZsdGlscnplZ29mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2ODc4MjQsImV4cCI6MjA5NDI2MzgyNH0.jiXpCvxoSDjVq0nWL3vcFG-AzUvQKRyiWAuEjuBRMn0';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const DIAS_SEMANA = ['D','L','M','X','J','V','S'];
+
+// Datos de enero del Excel (mientras no haya datos en Supabase)
+const ENERO_DATA = {
+  'INMA SOLER':['F','L','T3','T4','TC1','L','L','M7','M2','L','L','T5','T4','T3','L','L','M4','M8','L','M5','M3','T2','CT3','L','L','M4','T2','CT3','L','M10','M7'],
+  'ANA GARCIA':['M7','M2','L','L','T5','T4','T3','L','L','M4','M8','L','M5','M3','T2','CT3','L','L','M4','T2','CT3','L','M10','M7','M3','M5','N','L','L','M9','L'],
+  'XIMO':['L','L','M4','M8','L','F','M3','T2','CT3','L','L','M4','T2','CT3','L','M10','M7','M3','M5','N','L','L','M9','L','L','M3','L','L','M5','T5','T2'],
+  'MARIBEL SOBRECA':['T2','CT3','L','L','M4','T2','CT3','L','M10','M7','M3','M5','N','L','L','M9','L','L','M3','L','L','M5','T5','T2','T6','L','L','T4','CT3','T2','L'],
+  'REME BRIONES':['L','M10','M7','M3','M5','N','L','L','M9','L','L','M3','L','L','M5','T5','T2','T6','L','L','T4','CT3','T2','L','N','L','L','M9','M4','L','M5'],
+  'MARISA':['L','M9','L','L','M3','L','L','M5','T5','T2','T6','L','L','T4','CT3','T2','L','N','L','L','M9','M4','L','M5','M2','T2','T3','L','M10','M5','L'],
+  'SILVIA':['M5','T5','T2','T6','L','L','T4','CT3','T2','L','N','L','L','M9','M4','L','M5','M2','T2','T3','L','M10','M5','L','L','M8','M3','M5','TC1','L','T5'],
+  'TERE GRAU':['F','T2','L','N','L','L','M9','M4','L','M5','M2','T2','T3','L','M10','M5','L','L','M8','M3','M5','TC1','L','T5','T1','L','M1','M8','CD1','CD3','L'],
+  'ERIKA':['F','L','M5','M2','T2','T3','L','M10','M5','L','L','M8','M3','M5','TC1','L','T5','T1','L','M1','M8','CD1','CD3','L','L','T4','CT3','TC1','N','L','L'],
+  'NORMA':['M10','M5','L','L','M8','M3','M5','TC1','L','T5','T1','L','M1','M8','CD1','CD3','L','L','T4','CT3','TC1','N','L','L','L','M9','CD3','CD2','L','M6','M2'],
+  'MAYTE GARCÍA':['T3','L','T5','T1','L','M1','M8','CD1','CD3','L','L','T4','CT3','TC1','N','L','L','L','M9','CD3','CD2','L','M6','M2','M1','L','M11','M10','M8','T4','L'],
+  'NOEMI/MC':['F','CD3','L','L','T4','F','TC1','N','L','L','L','M9','CD3','CD2','L','M6','M2','M1','L','M11','M10','M8','T4','L','L','M6','TC2','T2','T3','L','M6'],
+  'REME RAMIREZ':['N','L','L','L','M9','M7','CD2','L','M6','M2','M1','L','M11','M10','M8','T4','L','L','M6','TC2','T2','T3','L','M6','M4','N','L','L','M6','M7','L'],
+  'ESTELA':['L','M6','M2','M1','L','M4','M10','M8','T4','L','L','M6','TC2','T2','T3','L','M6','M4','N','L','L','M6','M7','L','L','CD1','M7','M11','L','L','T1'],
+  'CRISTINA SIRERA':['M8','T4','L','L','M6','T6','T2','T3','L','M6','M4','N','L','L','M6','M7','L','L','CD1','M7','M11','L','L','T1','T2','T1','L','M4','M9','CD1','L'],
+  'MARIBEL':['T1','L','M6','M4','N','L','L','M6','M7','L','L','CD1','M7','M11','L','L','T1','T2','T1','L','M4','M9','CD1','L','L','M1','TC1','TC2','L','M12','M3'],
+  'RAQUEL':['M6','M7','L','L','CD1','F','M11','L','L','T1','T2','T1','L','M4','M9','CD1','L','L','M1','TC1','TC2','L','M12','M3','M7','L','M10','M1','T4','T1','L'],
+  'LAURA':['L','L','T1','T2','T1','L','M4','M9','CD1','L','L','M1','TC1','TC2','L','M12','M3','M7','L','M10','M1','T4','T1','L','L','CD2','CD1','L','M11','M4','N'],
+  'ROSA VICIANO':['M3','CD1','L','L','M1','F','TC2','L','M12','M3','M7','L','M10','M1','T4','T1','L','L','CD2','CD1','L','M11','M4','N','L','L','M8','M2','T1','TC2','L'],
+  'ISABEL TORRES':['L','M12','M3','M7','L','F','M1','T4','T1','L','L','CD2','CD1','L','M11','M4','N','L','L','M8','M2','T1','TC2','L','L','M10','T1','L','L','M11','T4'],
+  'RITA SIVERA':['T4','T1','L','L','CD2','F','L','M11','M4','N','L','L','M8','M2','T1','TC2','L','L','M10','T1','L','L','M11','T4','T5','L','M6','CD1','M2','M3','L'],
+  'MARISE':['F','M4','N','L','L','M8','M2','T1','TC2','L','L','M10','T1','L','L','M11','T4','T5','L','M6','CD1','M2','M3','L','L','T3','T5','L','CD3','CD2','M1'],
+  'MAR ORDOÑEZ':['T1','TC2','L','L','M10','T1','L','L','M11','T4','T5','L','M6','CD1','M2','M3','L','L','T3','T5','L','CD3','CD2','M1','M5','L','M12','M7','T5','TC1','L'],
+  'ESTHER':['L','M11','T4','T5','L','F','CD1','M2','M3','L','L','T3','T5','L','CD3','CD2','M1','M5','L','M12','M7','T5','TC1','L','L','M2','M9','N','L','L','T6'],
+  'MONICA':['M2','M3','L','L','T3','T5','L','CD3','CD2','M1','M5','L','M12','M7','T5','TC1','L','L','M2','M9','N','L','L','T6','T3','TC2','L','L','M3','M8','L'],
+  'MARISOL/ALE':['M4','CD2','M1','M5','L','M5','M7','T5','TC1','L','L','M2','M9','N','L','L','T6','T3','TC2','L','L','M3','M8','L','L','M7','M4','T1','L','M1','M8'],
+  'EVA':['T5','TC1','L','L','M2','F','N','L','L','T6','T3','TC2','L','L','M3','M8','L','L','M7','M4','T1','L','M1','M8','M6','CT3','L','M6','M1','T3','L'],
+  'MARTA':['L','L','T6','T3','TC2','L','L','M3','M8','L','L','M7','M4','T1','L','M1','M8','M6','CT3','L','M6','M1','T3','L','L','CD3','CD2','T5','TC2','N','L'],
+  'SONIA':['F','M8','L','L','M7','F','T1','L','M1','M8','M6','CT3','L','M6','M1','T3','L','L','CD3','CD2','T5','TC2','N','L','L','M11','M2','CD3','CD2','L','T3'],
+  'FATIMA':['L','M1','M8','M6','CT3','L','M6','M1','T3','L','L','CD3','CD2','T5','TC2','N','L','L','M11','M2','CD3','CD2','L','T3','T4','TC1','L','L','M7','M2','L'],
+  'SELMA':['M1','T3','L','L','CD3','M6','T5','TC2','N','L','L','M11','M2','CD3','CD2','L','T3','T4','TC1','L','L','M7','M2','L','L','T5','T4','T3','L','L','M4'],
+  'Mº JOSÉ':['T6','N','L','L','M11','M2','CD3','CD2','L','T3','T4','TC1','L','L','M7','M2','L','L','T5','T4','T3','L','L','M4','M8','L','M5','M3','T2','CT3','L'],
+};
+
+let currentUser = null;
+let mesActual = 0;
+let anioActual = 2026;
+let trabajadoras = [];
+let cuadranteCache = {};
+
+function claseColor(cod) {
+  if (cod === 'SA') return 't-SA';
+  if (!cod) return 't-L';
+  if (cod.startsWith('M')) return 't-M';
+  if (cod.startsWith('CD')) return 't-CD';
+  if (cod.startsWith('TC') || cod.startsWith('CT')) return 't-TC';
+  if (cod.startsWith('T')) return 't-T';
+  if (cod === 'N' || cod === 'N1') return 't-N';
+  const mapa = {L:'t-L',F:'t-F',AP:'t-AP',P:'t-P',HE:'t-HE',DH:'t-DH',IT:'t-IT',VAC:'t-VAC'};
+  return mapa[cod] || 't-L';
+}
+
+// LOGIN
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass = document.getElementById('login-pass').value;
+  const err = document.getElementById('login-error');
+  const btn = document.querySelector('#page-login .btn-primary');
+  err.style.display = 'none';
+  btn.textContent = 'Entrando...';
+  btn.disabled = true;
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  btn.textContent = 'Entrar';
+  btn.disabled = false;
+  if (error) {
+    err.textContent = 'Email o contraseña incorrectos. Comprueba tus datos.';
+    err.style.display = 'block';
+    return;
+  }
+  await cargarSesion();
+}
+
+// LOGIN DEMO (sin Supabase Auth, carga directamente de la tabla)
+async function loginDemo(tipo) {
+  const emails = { superadmin:'andreapastorzorita@hotmail.com', coordinadora:'inof1223@hotmail.com', auxiliar:'inma.soler@santallucia.es', auxiliar2:'ana.garcia@santallucia.es', enfermera:'anap@santallucia.es' };
+  const { data } = await sb.from('trabajadoras').select('*').eq('email', emails[tipo]).single();
+  if (data) {
+    currentUser = data;
+    iniciarApp();
+  }
+}
+
+async function cargarSesion() {
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return;
+  const { data, error } = await sb.from('trabajadoras').select('*').eq('auth_id', user.id).single();
+  if (data) {
+    currentUser = data;
+    iniciarApp();
+  } else {
+    // Usuario Auth existe pero no está vinculado a trabajadoras
+    const err = document.getElementById('login-error');
+    err.textContent = 'Tu usuario no está configurado todavía. Contacta con la administración.';
+    err.style.display = 'block';
+    await sb.auth.signOut();
+  }
+}
+
+function doLogout() {
+  sb.auth.signOut();
+  currentUser = null;
+  cuadranteCache = {};
+  document.getElementById('page-login').style.display = 'flex';
+  document.getElementById('app-shell').style.display = 'none';
+}
+
+async function iniciarApp() {
+  document.getElementById('page-login').style.display = 'none';
+  document.getElementById('app-shell').style.display = 'block';
+  document.getElementById('topbar-user').textContent = currentUser.nick;
+  // Mostrar pestaña admin solo para superadmin
+  const navAdmin = document.getElementById('nav-admin');
+  if (navAdmin) {
+    if (currentUser && currentUser.rol === 'superadmin') {
+      navAdmin.style.display = 'flex';
+    } else {
+      navAdmin.style.display = 'none';
+    }
+  }
+  await cargarTrabajadoras();
+  renderCuadrante();
+  renderSM();
+  renderSolicitudes();
+  cargarPerfil();
+  inicializarEventosSolicitudes();
+}
+
+async function cargarTrabajadoras() {
+  const { data } = await sb.from('trabajadoras').select('id,nick,nombre,rol,puesto_compartido,categoria').eq('activa', true).eq('en_cuadrante', true).order('nick');
+  if (data) {
+    trabajadoras = data;
+    const sel = document.getElementById('sol-contraparte');
+    sel.innerHTML = '<option value="">Selecciona compañera...</option>';
+    // Solo mostrar compañeras de la misma categoría
+    data.filter(t => t.id !== currentUser.id && t.categoria === currentUser.categoria).forEach(t => {
+      const o = document.createElement('option');
+      o.value = t.id; o.textContent = t.nick;
+      sel.appendChild(o);
+    });
+  }
+}
+
+// CUADRANTE
+function diasEnMes(m, a) { return new Date(a, m+1, 0).getDate(); }
+function diaSemana(a, m, d) { return new Date(a, m, d).getDay(); }
+function esFinde(a, m, d) { const ds = diaSemana(a,m,d); return ds===0||ds===6; }
+
+async function renderCuadrante() {
+  document.getElementById('mes-titulo').textContent = MESES[mesActual] + ' ' + anioActual;
+  const container = document.getElementById('cuadrante-container');
+  container.innerHTML = '<div class="loading"><div class="spinner"></div>Cargando cuadrante...</div>';
+
+  const total = diasEnMes(mesActual, anioActual);
+  const fechaIni = `${anioActual}-${String(mesActual+1).padStart(2,'0')}-01`;
+  const fechaFin = `${anioActual}-${String(mesActual+1).padStart(2,'0')}-${String(total).padStart(2,'0')}`;
+  const cacheKey = `${anioActual}-${mesActual}`;
+
+  let filas = {};
+
+  // Intentar cargar de Supabase
+  // Obtener IDs de trabajadoras de la categoría actual
+  const idsCategoria = trabajadoras
+    .filter(t => t.categoria === categoriaActual)
+    .map(t => t.id);
+
+  if (idsCategoria.length === 0) {
+    container.innerHTML = '<div class="empty-state">No hay trabajadoras en esta categoría</div>';
+    return;
+  }
+
+  // Consultar en bloques de 500 para evitar límite
+  let dbData = [];
+  for (let i = 0; i < idsCategoria.length; i += 20) {
+    const chunk = idsCategoria.slice(i, i + 20);
+    const { data: chunkData } = await sb.from('cuadrante')
+      .select('trabajadora_id, fecha, codigo_turno, incidencia, turno_original, trabajadoras!cuadrante_trabajadora_id_fkey(nick,categoria)')
+      .gte('fecha', fechaIni).lte('fecha', fechaFin)
+      .in('trabajadora_id', chunk);
+    if (chunkData) dbData = dbData.concat(chunkData);
+  }
+
+  if (dbData && dbData.length > 0) {
+    dbData.forEach(r => {
+      const tData = r.trabajadoras;
+      const nick = tData ? tData.nick : '';
+      if (!nick) return;
+      // Solo incluir trabajadoras de la categoría actual
+      const trabInfo = trabajadoras.find(t => t.nick === nick);
+      if (trabInfo && trabInfo.categoria !== categoriaActual) return;
+      if (!filas[nick]) filas[nick] = {};
+      const dia = parseInt(r.fecha.split('-')[2]);
+      if (r.incidencia === 'SA') {
+        const turnoReal = r.codigo_turno || r.turno_original || '?';
+        filas[nick][dia] = { cod: 'SA', turno: turnoReal };
+      } else {
+        const cod = r.incidencia || r.codigo_turno || '';
+        if (cod) filas[nick][dia] = { cod, turno: cod };
+      }
+    });
+  }
+
+  const hoy = new Date();
+  const esHoy = (d) => hoy.getFullYear()===anioActual && hoy.getMonth()===mesActual && hoy.getDate()===d;
+
+  const headerLabel = categoriaActual === 'enfermera' ? 'Enfermera' : 'Auxiliar';
+  let html = `<div class="cuadrante-wrap"><table class="cuadrante-tabla"><thead><tr><th class="col-nombre">${headerLabel}</th>`;
+  for (let d=1; d<=total; d++) {
+    const ds = diaSemana(anioActual, mesActual, d);
+    html += `<th class="${esFinde(anioActual,mesActual,d)?'col-findes':''} ${esHoy(d)?'col-hoy':''}">${DIAS_SEMANA[ds]}<br>${d}</th>`;
+  }
+  html += '</tr></thead><tbody>';
+
+  // Filtrar trabajadoras por categoría seleccionada
+  const nicksCategoria = trabajadoras.filter(t => t.categoria === categoriaActual).map(t => t.nick);
+  // Solo mostrar filas de la categoría activa
+  const nicks = nicksCategoria;
+  nicks.forEach(nick => {
+    const esMia = currentUser && currentUser.nick === nick;
+    html += `<tr${esMia?' class="fila-propia"':''}>`;
+    html += `<td class="nombre-cel">${nick}</td>`;
+    for (let d=1; d<=total; d++) {
+      const celda = (filas[nick] && filas[nick][d]) || null;
+      const cod = celda ? celda.cod : '';
+      const label = celda ? celda.turno : '';
+      const cls = claseColor(cod);
+      html += `<td class="${esFinde(anioActual,mesActual,d)?'col-findes':''} ${esHoy(d)?'col-hoy':''}">`;
+      const esPuestoCompartido = currentUser && currentUser.puesto_compartido;
+      const esSA = cod === 'SA';
+      const onclick = (esSA && esPuestoCompartido && esMia) ? ` onclick="reclamarDia('${nick}',${d})" title="Reclamar este día"` : '';
+      const esCoordActual = currentUser && ['coordinadora','coordinadora_enfermera','superadmin'].includes(currentUser.rol);
+      const onclickEdit = esCoordActual ? ` onclick="editarCelda('${nick}',${d},'${cod}','${label}')"` : (cod === 'SA' && esPuestoCompartido && esMia ? ` onclick="reclamarDia('${nick}',${d})" title="Reclamar este día"` : '');
+      if (cod) html += `<span class="turno-pill ${cls}" style="${esCoordActual?'cursor:pointer':''}"${onclickEdit}>${label}</span>`;
+      else if (esCoordActual) html += `<span class="turno-pill t-L" style="cursor:pointer;opacity:0.4"${onclickEdit}>+</span>`;
+      html += '</td>';
+    }
+    html += '</tr>';
+  });
+
+  html += '</tbody></table></div>';
+  container.innerHTML = html;
+}
+
+function cambiarMes(delta) {
+  mesActual += delta;
+  if (mesActual < 0) { mesActual = 11; anioActual--; }
+  if (mesActual > 11) { mesActual = 0; anioActual++; }
+  renderCuadrante();
+}
+
+// SERVICIOS MÍNIMOS
+function renderSM() {
+  const hoy = new Date();
+  const diasSem = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  const fe = [0,6].includes(hoy.getDay());
+  const smM = fe?8:11; const smT = fe?6:7;
+  const efM = fe?8:12; const efT = fe?6:7;
+
+  function fila(lbl, ef, min) {
+    const ok = ef>=min;
+    return `<div class="sm-row">
+      <span><span class="${ok?'dot-ok':'dot-red'}"></span>${lbl}</span>
+      <span class="sm-num ${ok?'estado-ok':'estado-red'}">${ef}/${min}</span>
+    </div>`;
+  }
+
+  document.getElementById('sm-hoy').innerHTML =
+    `<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">${diasSem[hoy.getDay()]}, ${hoy.getDate()} de ${MESES[hoy.getMonth()]}</div>
+    ${fila('Mañana',efM,smM)}${fila('Tarde',efT,smT)}${fila('Noche',1,1)}`;
+
+  let html = '';
+  for (let i=0; i<7; i++) {
+    const f = new Date(hoy); f.setDate(hoy.getDate()+i);
+    const fe2 = [0,6].includes(f.getDay());
+    const mMin=fe2?8:11; const tMin=fe2?6:7;
+    const mEf=fe2?8:12; const tEf=fe2?6:7;
+    html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:0.5px solid var(--border);font-size:12px">
+      <span>${diasSem[f.getDay()].slice(0,3)} ${f.getDate()}</span>
+      <span>
+        <span class="${mEf>=mMin?'estado-ok':'estado-red'}" style="margin-right:8px">M ${mEf}/${mMin}</span>
+        <span class="${tEf>=tMin?'estado-ok':'estado-red'}" style="margin-right:8px">T ${tEf}/${tMin}</span>
+        <span class="estado-ok">N 1/1</span>
+      </span>
+    </div>`;
+  }
+  document.getElementById('sm-semana').innerHTML = html;
+}
+
+// SOLICITUDES
+async function renderSolicitudes() {
+  const { data } = await sb.from('solicitudes')
+    .select('*, solicitante:solicitante_id(nick,id), contraparte:contraparte_id(nick,id)')
+    .order('created_at', { ascending: false });
+
+  const esCoord = currentUser && ['coordinadora','coordinadora_enfermera','superadmin'].includes(currentUser.rol);
+
+  // PENDIENTES: solicitudes donde soy la contraparte (me piden a mí) o soy coordinadora
+  const pendientes = (data||[]).filter(s => {
+    if (esCoord) {
+      // Coordinadora ve: permisos pendientes + cambios aplicados recientes
+      const hace30dias = new Date(Date.now() - 30*24*60*60*1000).toISOString();
+      return (s.tipo === 'permiso' && s.estado === 'pendiente_aprobacion') ||
+             (s.estado === 'aprobada' && s.created_at > hace30dias);
+    }
+    // La contraparte ve las pendientes de su respuesta
+    return s.contraparte_id === currentUser.id && s.estado === 'pendiente';
+  });
+
+  let html = '';
+  if (esCoord && pendientes.length > 0) {
+    html = '<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;padding:0 4px">Registro de cambios aplicados en los últimos 30 días. Puedes deshacer cualquier cambio editando el cuadrante directamente.</div>';
+  }
+  if (pendientes.length === 0) {
+    html += '<div class="empty-state">Sin cambios recientes</div>';
+  } else {
+    pendientes.forEach(s => {
+      const ini = (s.solicitante?.nick||'').split(' ').map(w=>w[0]).join('').slice(0,2);
+      const tipoCambioLabel = {
+        completo: '↔ Cambio completo',
+        devolucion: '⏳ Devolución posterior',
+        parcial: '⏱ Parcial por horas'
+      }[s.tipo_cambio] || s.tipo;
+
+      const detalle = s.tipo_cambio === 'completo'
+        ? `Yo le hago el ${s.fecha_desde_b || '?'} · Ella me devuelve el ${s.fecha_desde}`
+        : s.tipo_cambio === 'parcial'
+        ? `Día ${s.fecha_desde} · ${s.horas_cambio}h`
+        : `Cubre el ${s.fecha_desde_b || s.fecha_desde}`;
+
+      const esMiSolicitud = s.contraparte_id === currentUser.id;
+
+      html += `<div class="solicitud-item">
+        <div class="sol-avatar" style="background:var(--teal-light);color:var(--teal-dark)">${ini}</div>
+        <div class="sol-info">
+          <div class="sol-nombre">${s.solicitante?.nick} → <span style="font-weight:600;color:var(--teal-dark)">${s.contraparte?.nick||'—'}</span> · <span style="font-weight:400;color:var(--text-muted)">${tipoCambioLabel}</span></div>
+          <div class="sol-detalle">${detalle}</div>
+          ${s.motivo?`<div class="sol-detalle" style="font-style:italic">"${s.motivo}"</div>`:''}
+          <div class="sol-actions" style="margin-top:6px">
+            ${esCoord && s.tipo === 'permiso' ? `
+              <button class="btn-accept" onclick="aprobarPermiso('${s.id}')">✓ Aprobar</button>
+              <button class="btn-reject" onclick="rechazarCambio('${s.id}')">✗ Rechazar</button>
+            ` : esCoord ? `
+              <span style="font-size:11px;color:var(--teal-dark)">✓ Aplicado</span>
+            ` : (esMiSolicitud && s.estado === 'pendiente') ? `
+              <button class="btn-accept" onclick="aceptarCambio('${s.id}')">✓ Aceptar</button>
+              <button class="btn-reject" onclick="rechazarCambio('${s.id}')">✗ Rechazar</button>
+            ` : '<span style="font-size:11px;color:var(--text-muted)">Pendiente de respuesta</span>'}
+          </div>
+        </div>
+      </div>`;
+    });
+  }
+  document.getElementById('sol-pendientes').innerHTML = `<div class="card">${html}</div>`;
+
+  // MIS CAMBIOS: solicitudes que yo he enviado
+  const mias = (data||[]).filter(s => s.solicitante_id === currentUser.id);
+  let miHtml = mias.length === 0 ? '<div class="empty-state">No has enviado solicitudes</div>' : '<div class="card">';
+  mias.forEach(s => {
+    const tipoCambioLabel = {
+      completo: '↔ Cambio completo',
+      devolucion: '⏳ Devolución posterior',
+      parcial: '⏱ Parcial'
+    }[s.tipo_cambio] || s.tipo;
+    const estadoClass = {
+      pendiente: 'badge-pendiente',
+      aprobada: 'badge-aprobada',
+      vetada: 'badge-vetada',
+      cancelada: 'badge-vetada',
+      pendiente_aprobacion: 'badge-pendiente'
+    }[s.estado] || 'badge-pendiente';
+    const estadoLabel = {
+      pendiente: 'Esperando respuesta',
+      aprobada: 'Aceptado ✓',
+      vetada: 'Vetado',
+      cancelada: 'Cancelado',
+      pendiente_aprobacion: 'Pdte. coordinadora'
+    }[s.estado] || s.estado;
+
+    miHtml += `<div class="solicitud-item">
+      <div class="sol-info">
+        <div class="sol-nombre">${tipoCambioLabel} · <span style="font-weight:400;color:var(--text-muted)">${s.contraparte?.nick||'—'}</span></div>
+        <div class="sol-detalle">Yo hago el ${s.fecha_desde_b||s.fecha_desde} · Ella hace el ${s.fecha_desde}</div>
+      </div>
+      <span class="badge-estado ${estadoClass}" style="white-space:nowrap;font-size:10px">${estadoLabel}</span>
+    </div>`;
+  });
+  if (mias.length > 0) miHtml += '</div>';
+  document.getElementById('sol-mis').innerHTML = miHtml;
+}
+
+async function aceptarCambio(solicitudId) {
+  const { data: sol } = await sb.from('solicitudes').select('*').eq('id', solicitudId).single();
+  if (!sol) return;
+
+  // Todos los cambios se aplican cuando la contraparte acepta
+  await sb.from('solicitudes').update({
+    estado: 'aprobada',
+    resuelta_por: currentUser.id,
+    resuelta_en: new Date().toISOString()
+  }).eq('id', solicitudId);
+
+  if (sol.tipo_cambio === 'completo') {
+    await aplicarCambioCompleto(sol);
+  } else if (sol.tipo_cambio === 'devolucion') {
+    await aplicarCambioDevolucion(sol);
+  } else if (sol.tipo_cambio === 'parcial') {
+    await aplicarCambioParcial(sol);
+  }
+
+  alert('✓ Cambio aceptado y aplicado en el cuadrante.');
+  renderSolicitudes();
+  renderCuadrante();
+}
+
+async function aplicarCambioCompleto(sol) {
+  // Obtener datos del cuadrante de A (solicitante) en su fecha
+  const { data: celdaA } = await sb.from('cuadrante')
+    .select('id, codigo_turno, incidencia')
+    .eq('trabajadora_id', sol.solicitante_id)
+    .eq('fecha', sol.fecha_desde)
+    .single();
+
+  // Obtener datos del cuadrante de B (contraparte) en su fecha
+  const { data: celdaB } = await sb.from('cuadrante')
+    .select('id, codigo_turno, incidencia')
+    .eq('trabajadora_id', sol.contraparte_id)
+    .eq('fecha', sol.fecha_desde_b || sol.fecha_desde)
+    .single();
+
+  if (!celdaA || !celdaB) {
+    alert('Error: no se encontraron los turnos en el cuadrante.');
+    return;
+  }
+
+  // Helper: preparar los datos correctos para el intercambio
+  // Si la celda solo tiene incidencia (L, F...) sin turno, mantener esa incidencia
+  function prepararDatos(celdaOrigen, celdaDestino) {
+    return {
+      codigo_turno: celdaOrigen.codigo_turno || null,
+      incidencia: celdaOrigen.incidencia || null,
+      turno_original: celdaDestino.codigo_turno || celdaDestino.incidencia || null,
+      modificado_por: currentUser.id,
+      modificado_en: new Date().toISOString()
+    };
+  }
+
+  // Intercambiar: A pasa a tener el turno de B y viceversa
+  await sb.from('cuadrante').update(prepararDatos(celdaB, celdaA)).eq('id', celdaA.id);
+  await sb.from('cuadrante').update(prepararDatos(celdaA, celdaB)).eq('id', celdaB.id);
+}
+
+async function aplicarCambioDevolucion(sol) {
+  // A cubre el turno de B: B pasa a tener el turno de A en la fecha de A
+  const { data: celdaA } = await sb.from('cuadrante')
+    .select('id, codigo_turno, incidencia')
+    .eq('trabajadora_id', sol.solicitante_id)
+    .eq('fecha', sol.fecha_desde)
+    .single();
+
+  if (celdaA) {
+    // Actualizar el cuadrante de B con el turno de A
+    await sb.from('cuadrante').update({
+      codigo_turno: celdaA.codigo_turno,
+      incidencia: null,
+      modificado_por: currentUser.id,
+      modificado_en: new Date().toISOString()
+    }).eq('trabajadora_id', sol.contraparte_id).eq('fecha', sol.fecha_desde);
+
+    // Registrar la deuda en bolsa_deudas
+    await sb.from('bolsa_deudas').insert({
+      acreedora_id: sol.solicitante_id,
+      deudora_id: sol.contraparte_id,
+      horas: celdaA.codigo_turno?.startsWith('N') ? 10.25 : 7.25,
+      fecha_origen: sol.fecha_desde,
+      solicitud_id: sol.id,
+      estado: 'pendiente'
+    });
+  }
+}
+
+async function aplicarCambioParcial(sol) {
+  // Registrar horas parciales en el cuadrante
+  await sb.from('cuadrante').update({
+    hora_inicio_real: sol.hora_inicio_real,
+    hora_fin_real: sol.hora_fin_real,
+    modificado_por: currentUser.id,
+    modificado_en: new Date().toISOString()
+  }).eq('trabajadora_id', sol.solicitante_id).eq('fecha', sol.fecha_desde);
+
+  // Registrar la deuda parcial
+  await sb.from('bolsa_deudas').insert({
+    acreedora_id: sol.contraparte_id,
+    deudora_id: sol.solicitante_id,
+    horas: sol.horas_cambio,
+    fecha_origen: sol.fecha_desde,
+    solicitud_id: sol.id,
+    estado: 'pendiente'
+  });
+}
+
+async function aprobarPermiso(solicitudId) {
+  await sb.from('solicitudes').update({
+    estado: 'aprobada',
+    resuelta_por: currentUser.id,
+    resuelta_en: new Date().toISOString()
+  }).eq('id', solicitudId);
+  alert('✓ Permiso aprobado. Recuerda marcarlo en el cuadrante.');
+  renderSolicitudes();
+}
+
+async function enviarPermiso() {
+  const tipo = document.getElementById('perm-tipo').value;
+  const fechaIni = document.getElementById('perm-fecha-ini').value;
+  const fechaFin = document.getElementById('perm-fecha-fin').value || fechaIni;
+  const motivo = document.getElementById('perm-motivo').value;
+
+  if (!fechaIni) { alert('Indica al menos la fecha de inicio.'); return; }
+
+  const { error } = await sb.from('solicitudes').insert({
+    solicitante_id: currentUser.id,
+    contraparte_id: null,
+    tipo: 'permiso',
+    tipo_cambio: tipo,
+    fecha_desde: fechaIni,
+    fecha_desde_b: fechaFin,
+    motivo: motivo || null,
+    estado: 'pendiente_aprobacion'
+  });
+
+  if (error) { alert('Error al enviar: ' + error.message); return; }
+  alert('✓ Petición enviada. La coordinadora la revisará en breve.');
+  switchSolTab('mis', document.querySelectorAll('.tab-btn')[1]);
+}
+
+async function rechazarCambio(solicitudId) {
+  await sb.from('solicitudes').update({
+    estado: 'vetada',
+    resuelta_por: currentUser.id,
+    resuelta_en: new Date().toISOString()
+  }).eq('id', solicitudId);
+  alert('Cambio rechazado.');
+  renderSolicitudes();
+}
+
+async function resolverSol(id, estado) {
+  await sb.from('solicitudes').update({ estado, resuelta_por: currentUser.id, resuelta_en: new Date().toISOString() }).eq('id', id);
+  renderSolicitudes();
+}
+
+// ============================================================
+// SOLICITUDES DE CAMBIO — LÓGICA COMPLETA
+// ============================================================
+
+let tipoCambioActual = 'completo';
+let categoriaActual = 'auxiliar';
+
+function selCategoria(cat, btn) {
+  categoriaActual = cat;
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderCuadrante();
+}
+
+function selTipoCambio(tipo, btn) {
+  tipoCambioActual = tipo;
+  document.querySelectorAll('.tipo-cambio-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  // Mostrar/ocultar campos según tipo
+  // Mostrar campos-b tanto en cambio completo como en parcial
+  document.getElementById('campos-b').style.display = (tipo === 'completo' || tipo === 'parcial') ? 'grid' : 'none';
+  // Cambiar el texto del bloque según el tipo
+  const labelB = document.querySelector('#campos-b > div:first-child');
+  const sublabelB = document.querySelector('#campos-b > div:nth-child(2)');
+  if (tipo === 'parcial') {
+    if (labelB) labelB.textContent = 'Ella me hace...';
+    if (sublabelB) sublabelB.textContent = 'El día mío que ella va a cubrir parcialmente';
+  } else {
+    if (labelB) labelB.textContent = 'Ella me devuelve...';
+    if (sublabelB) sublabelB.textContent = 'El día mío que ella va a cubrir';
+  }
+  const esParcial = tipo === 'parcial';
+  document.getElementById('campos-parcial').style.display = esParcial ? 'block' : 'none';
+  document.getElementById('campos-parcial-b').style.display = esParcial ? 'block' : 'none';
+  if (!esParcial) document.getElementById('horas-calculo').style.display = 'none';
+  const labelFijo = document.getElementById('label-campos-b');
+  const sublabelFijo = document.getElementById('sublabel-campos-b');
+  if (labelFijo) labelFijo.textContent = tipo === 'parcial' ? 'Ella me hace...' : 'Ella me devuelve...';
+  if (sublabelFijo) sublabelFijo.textContent = tipo === 'parcial' ? 'El día mío que ella va a cubrir parcialmente' : 'El día mío que ella va a cubrir';
+
+  // Aviso de aprobación
+  const aviso = document.getElementById('sol-aviso-aprobacion');
+  aviso.style.display = (tipo === 'devolucion' || tipo === 'parcial') ? 'block' : 'none';
+}
+
+// Horarios por tipo de turno
+const HORARIOS_TURNO = {
+  M: { ini: '07:45', fin: '15:00' },
+  CD: { ini: '07:45', fin: '15:00' },
+  T: { ini: '14:45', fin: '22:00' },
+  TC: { ini: '14:45', fin: '22:00' },
+  N: { ini: '21:45', fin: '08:00' }
+};
+
+function getHorarioTurno(cod) {
+  if (!cod) return null;
+  if (cod.startsWith('M') || cod.startsWith('CD')) return HORARIOS_TURNO.M;
+  if (cod.startsWith('T') || cod.startsWith('TC') || cod.startsWith('CT')) return HORARIOS_TURNO.T;
+  if (cod === 'N' || cod === 'N1') return HORARIOS_TURNO.N;
+  return null;
+}
+
+async function cargarTurnosDia(fecha, selectId, trabajadoraId) {
+  if (!fecha || !trabajadoraId) return;
+  const { data } = await sb.from('cuadrante')
+    .select('codigo_turno, incidencia, turno_original')
+    .eq('trabajadora_id', trabajadoraId)
+    .eq('fecha', fecha)
+    .single();
+
+  const sel = document.getElementById(selectId);
+  if (!data) {
+    sel.innerHTML = '<option value="">Sin datos ese día</option>';
+    return;
+  }
+
+  // Incidencias que NO se pueden cambiar
+  const noIntercambiables = ['IT', 'P', 'AP', 'VAC', 'DH'];
+  if (data.incidencia && noIntercambiables.includes(data.incidencia)) {
+    sel.innerHTML = `<option value="">${data.incidencia} — no disponible para cambio</option>`;
+    return;
+  }
+
+  // Incidencias intercambiables (L, F, AP, VAC, DH, HE...)
+  if (data.incidencia && data.incidencia !== 'SA') {
+    sel.innerHTML = `<option value="${data.incidencia}">${data.incidencia}</option>`;
+    return;
+  }
+
+  // Si es SA (sin asignar en puesto compartido) usar turno_original
+  if (data.incidencia === 'SA') {
+    const turno = data.turno_original || data.codigo_turno;
+    if (!turno) { sel.innerHTML = '<option value="">Sin turno ese día</option>'; return; }
+    sel.innerHTML = `<option value="${turno}">${turno} (pendiente asignar)</option>`;
+    return;
+  }
+
+  // Turno normal
+  const turno = data.codigo_turno;
+  if (!turno) {
+    sel.innerHTML = '<option value="">Sin turno ese día</option>';
+    return;
+  }
+  sel.innerHTML = `<option value="${turno}">${turno}</option>`;
+
+  // Actualizar display de horario en modo parcial y rellenar horas automáticamente
+  const horario = getHorarioTurno(turno);
+  if (horario && tipoCambioActual === 'parcial') {
+    if (selectId === 'sol-turno-b') {
+      const el = document.getElementById('horario-turno-b');
+      if (el) el.textContent = `Horario completo: ${horario.ini} — ${horario.fin}`;
+      const ini = document.getElementById('sol-hora-ini-b2');
+      const fin = document.getElementById('sol-hora-fin-b2');
+      if (ini && !ini.value) ini.value = horario.ini;
+      if (fin && !fin.value) fin.value = horario.fin;
+      calcularHorasParcial();
+    }
+    if (selectId === 'sol-turno-a') {
+      const el = document.getElementById('horario-turno-a');
+      if (el) el.textContent = `Horario completo: ${horario.ini} — ${horario.fin}`;
+      const ini = document.getElementById('sol-hora-ini-a2');
+      const fin = document.getElementById('sol-hora-fin');
+      if (ini && !ini.value) ini.value = horario.ini;
+      if (fin && !fin.value) fin.value = horario.fin;
+      calcularHorasParcial();
+    }
+  }
+}
+
+// Cuando cambia la fecha de A, carga su turno
+function inicializarEventosSolicitudes() {
+  // sol-fecha-b = su día (el que yo le hago) → carga turno de la compañera
+  document.getElementById('sol-fecha-b').addEventListener('change', e => {
+    const contraparteId = document.getElementById('sol-contraparte').value;
+    if (contraparteId && e.target.value) {
+      cargarTurnosDia(e.target.value, 'sol-turno-b', contraparteId);
+    }
+    if (tipoCambioActual === 'parcial') calcularHorasParcial();
+  });
+
+  // sol-fecha-ini = mi día (el que ella me devuelve) → carga mi turno
+  document.getElementById('sol-fecha-ini').addEventListener('change', e => {
+    if (currentUser && currentUser.id && e.target.value) {
+      cargarTurnosDia(e.target.value, 'sol-turno-a', currentUser.id);
+    }
+  });
+
+  // Al cambiar compañera, recargar su turno
+  document.getElementById('sol-contraparte').addEventListener('change', e => {
+    const fechaB = document.getElementById('sol-fecha-b').value;
+    const contraparteId = e.target.value;
+    if (contraparteId && fechaB) {
+      cargarTurnosDia(fechaB, 'sol-turno-b', contraparteId);
+    }
+  });
+
+  document.getElementById('sol-hora-fin').addEventListener('change', calcularHorasParcial);
+  document.getElementById('sol-hora-ini-b2').addEventListener('change', calcularHorasParcial);
+  document.getElementById('sol-hora-fin-b2').addEventListener('change', calcularHorasParcial);
+  document.getElementById('sol-hora-ini-a2').addEventListener('change', calcularHorasParcial);
+
+
+}
+
+function calcularHorasParcial() {
+  const div = document.getElementById('horas-calculo');
+  const iniB = document.getElementById('sol-hora-ini-b2')?.value;
+  const finB = document.getElementById('sol-hora-fin-b2')?.value;
+  const iniA = document.getElementById('sol-hora-ini-a2')?.value;
+  const finA = document.getElementById('sol-hora-fin')?.value;
+
+  if (!iniB || !finB) { div.style.display = 'none'; return; }
+
+  function calcHoras(ini, fin) {
+    const mi = parseInt(ini.split(':')[0])*60 + parseInt(ini.split(':')[1]);
+    const mf = parseInt(fin.split(':')[0])*60 + parseInt(fin.split(':')[1]);
+    let d = (mf - mi) / 60;
+    if (d < 0) d += 24;
+    return d;
+  }
+
+  const horasB = calcHoras(iniB, finB);
+  if (horasB < 1) {
+    div.style.display = 'block';
+    div.style.background = 'var(--red-light)';
+    div.style.color = 'var(--red)';
+    div.textContent = '⚠️ Mínimo 1 hora por bloque.';
+    return;
+  }
+
+  div.style.display = 'block';
+  div.style.background = 'var(--teal-light)';
+  div.style.color = 'var(--teal-dark)';
+
+  if (iniA && finA) {
+    const horasA = calcHoras(iniA, finA);
+    div.textContent = `✓ Yo hago ${horasB.toFixed(2)}h · Ella me hace ${horasA.toFixed(2)}h. Quedará registrado en la bolsa de deudas.`;
+  } else {
+    div.textContent = `✓ Yo hago ${horasB.toFixed(2)}h de su turno.`;
+  }
+}
+
+async function enviarSolicitud() {
+  const contraparte = document.getElementById('sol-contraparte').value;
+  const fechaA = document.getElementById('sol-fecha-ini').value;
+  const turnoA = document.getElementById('sol-turno-a').value;
+  const motivo = document.getElementById('sol-motivo').value;
+
+  if (!contraparte) { alert('Selecciona una compañera.'); return; }
+  if (!fechaA) { alert('Selecciona tu fecha.'); return; }
+  if (!turnoA) { alert('No tienes turno ese día.'); return; }
+
+  let solicitud = {
+    solicitante_id: currentUser.id,
+    contraparte_id: contraparte,
+    tipo: 'cambio',
+    tipo_cambio: tipoCambioActual,
+    fecha_desde: fechaA,
+    fecha_hasta: fechaA,
+    motivo: motivo || null,
+    estado: 'pendiente'
+  };
+
+  if (tipoCambioActual === 'completo') {
+    const fechaB = document.getElementById('sol-fecha-b').value;
+    const turnoB = document.getElementById('sol-turno-b').value;
+    if (!fechaB || !turnoB) { alert('Indica la fecha y turno de tu compañera.'); return; }
+    const turnoA2 = document.getElementById('sol-turno-a').value;
+    if (fechaB === fechaA && turnoB === turnoA2) { alert('No tiene sentido cambiar el mismo turno del mismo día.'); return; }
+    solicitud.fecha_desde_b = fechaB;
+  }
+
+  if (tipoCambioActual === 'parcial') {
+    const horaIniB = document.getElementById('sol-hora-ini-b2').value;
+    const horaFinB = document.getElementById('sol-hora-fin-b2').value;
+    const horaIniA = document.getElementById('sol-hora-ini-a2').value;
+    const horaFinA = document.getElementById('sol-hora-fin').value;
+
+    if (!horaIniB || !horaFinB) {
+      alert('Indica las horas del bloque "Yo le hago".'); return;
+    }
+
+    function calcH(ini, fin) {
+      const mi = parseInt(ini.split(':')[0])*60 + parseInt(ini.split(':')[1]);
+      const mf = parseInt(fin.split(':')[0])*60 + parseInt(fin.split(':')[1]);
+      let d = (mf - mi) / 60; if (d < 0) d += 24; return d;
+    }
+
+    const horasB = calcH(horaIniB, horaFinB);
+    if (horasB < 1) { alert('Mínimo 1 hora en el bloque "Yo le hago".'); return; }
+
+    solicitud.hora_inicio_real = horaIniB;
+    solicitud.hora_fin_real = horaFinB;
+    solicitud.horas_cambio = parseFloat(horasB.toFixed(2));
+
+    if (horaIniA && horaFinA) {
+      const horasA = calcH(horaIniA, horaFinA);
+      if (horasA < 1) { alert('Mínimo 1 hora en el bloque "Ella me devuelve".'); return; }
+    }
+  }
+
+  const { error } = await sb.from('solicitudes').insert(solicitud);
+  if (error) { alert('Error al enviar: ' + error.message); return; }
+
+  const msg = tipoCambioActual === 'completo'
+    ? 'Solicitud enviada. Tu compañera recibirá la notificación.'
+    : 'Solicitud enviada. Pendiente de aprobación de la coordinadora.';
+  alert('✓ ' + msg);
+  renderSolicitudes();
+  switchSolTab('mis', document.querySelectorAll('.tab-btn')[1]);
+}
+
+function switchSolTab(tab, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('sol-pendientes').style.display = tab === 'pendientes' ? 'block' : 'none';
+  document.getElementById('sol-mis').style.display = tab === 'mis' ? 'block' : 'none';
+  document.getElementById('sol-deudas').style.display = tab === 'deudas' ? 'block' : 'none';
+  document.getElementById('sol-nueva').style.display = tab === 'nueva' ? 'block' : 'none';
+  if (tab === 'deudas') cargarDeudas();
+  document.getElementById('sol-permiso').style.display = tab === 'permiso' ? 'block' : 'none';
+  if (tab === 'nueva') {
+    const hoy = new Date().toISOString().split('T')[0];
+    document.getElementById('sol-fecha-ini').value = hoy;
+    document.getElementById('sol-fecha-b').value = hoy;
+    // sol-fecha-ini = mi día → cargo mi turno en sol-turno-a
+    if (currentUser && currentUser.id) {
+      cargarTurnosDia(hoy, 'sol-turno-a', currentUser.id);
+    }
+  }
+}
+
+async function cargarDeudas() {
+  const { data: deudas } = await sb.from('bolsa_deudas')
+    .select('*, acreedora:acreedora_id(nick), deudora:deudora_id(nick)')
+    .or(`acreedora_id.eq.${currentUser.id},deudora_id.eq.${currentUser.id}`)
+    .eq('estado', 'pendiente')
+    .order('fecha_origen', { ascending: false });
+
+  const div = document.getElementById('sol-deudas');
+  if (!deudas || deudas.length === 0) {
+    div.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" style="width:36px;height:36px;stroke:var(--border);fill:none;stroke-width:1.5;display:block;margin:0 auto 10px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Sin deudas pendientes</div>';
+    return;
+  }
+
+  let html = '';
+  deudas.forEach(d => {
+    const esMiDeuda = d.deudora_id === currentUser.id;
+    const compañera = esMiDeuda ? d.acreedora?.nick : d.deudora?.nick;
+    const texto = esMiDeuda
+      ? `Debes ${d.horas}h a ${compañera}`
+      : `${compañera} te debe ${d.horas}h`;
+    const cls = esMiDeuda ? 'deuda-negativo' : 'deuda-positivo';
+    const icon = esMiDeuda ? '↑' : '↓';
+
+    html += `<div class="deuda-item">
+      <div style="width:32px;height:32px;border-radius:50%;background:${esMiDeuda?'var(--red-light)':'var(--teal-light)'};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:${esMiDeuda?'var(--red)':'var(--teal-dark)'}">${icon}</div>
+      <div style="flex:1">
+        <div class="deuda-saldo ${cls}">${texto}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Origen: ${d.fecha_origen}</div>
+      </div>
+    </div>`;
+  });
+  div.innerHTML = `<div class="card">${html}</div>`;
+}
+
+// PERFIL
+async function cargarPerfil() {
+  if (!currentUser) return;
+  const ini = currentUser.nick.split(' ').map(w=>w[0]).join('').slice(0,2);
+  document.getElementById('perfil-avatar').textContent = ini;
+  document.getElementById('perfil-nombre').textContent = currentUser.nombre;
+  document.getElementById('perfil-rol').textContent = currentUser.rol.charAt(0).toUpperCase()+currentUser.rol.slice(1)+' · Auxiliar de enfermería';
+
+  // Contar turnos de enero desde los datos
+  // Contar turnos del mes actual desde Supabase
+  const hoy = new Date();
+  const mesIni = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-01`;
+  const mesFin = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-${String(new Date(hoy.getFullYear(),hoy.getMonth()+1,0).getDate()).padStart(2,'0')}`;
+  const { data: statData } = await sb.from('cuadrante')
+    .select('codigo_turno, incidencia')
+    .eq('trabajadora_id', currentUser.id)
+    .gte('fecha', mesIni).lte('fecha', mesFin);
+
+  let M=0, T=0, N=0;
+  (statData||[]).forEach(r => {
+    const c = r.incidencia || r.codigo_turno || '';
+    if (c.startsWith('M')||c.startsWith('CD')) M++;
+    else if (c.startsWith('T')||c.startsWith('TC')||c.startsWith('CT')) T++;
+    else if (c==='N'||c==='N1') N++;
+  });
+
+  document.getElementById('perfil-stats').innerHTML = `
+    <div class="stat-box"><div class="stat-num" style="color:#1D9E75">${M}</div><div class="stat-lbl">Mañanas</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:#BA7517">${T}</div><div class="stat-lbl">Tardes</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:#534AB7">${N}</div><div class="stat-lbl">Noches</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:#A32D2D">0</div><div class="stat-lbl">HE pend.</div></div>`;
+
+  const { data: heData } = await sb.from('bolsa_he').select('*').eq('trabajadora_id', currentUser.id).eq('destino','pendiente');
+  document.getElementById('he-lista').innerHTML = (!heData||heData.length===0)
+    ? '<div class="empty-state">Sin horas extra pendientes</div>'
+    : heData.map(h=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:0.5px solid var(--border);font-size:12px">
+        <span>${h.fecha} · ${h.origen}</span><span style="font-weight:600;color:var(--red)">${h.horas}h</span>
+      </div>`).join('');
+}
+
+function showPage(nombre) {
+  // Proteger panel admin
+  if (nombre === 'admin' && (!currentUser || currentUser.rol !== 'superadmin')) return;
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+nombre).classList.add('active');
+  if (document.getElementById('nav-'+nombre)) document.getElementById('nav-'+nombre).classList.add('active');
+  if (nombre === 'admin') cargarAdminPanel();
+  if (nombre === 'micuadrante') renderMiCuadrante();
+}
+
+// ============================================================
+// EDICIÓN DE CUADRANTE — Coordinadora
+// ============================================================
+async function editarCelda(nick, dia, codActual, labelActual) {
+  const esCoordActual = currentUser && ['coordinadora','coordinadora_enfermera','superadmin'].includes(currentUser.rol);
+  if (!esCoordActual) return;
+
+  // Buscar trabajadora_id por nick
+  const trab = trabajadoras.find(t => t.nick === nick);
+  if (!trab) return;
+
+  const fecha = `${anioActual}-${String(mesActual+1).padStart(2,'0')}-${String(dia).padStart(2,'0')}`;
+
+  // Crear modal de edición
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.id = 'modal-celda';
+
+  // Turnos disponibles según categoría
+  const turnosAux = ['M1','M2','M3','M4','M5','M6','M7','M8','M9','M10','M11','M12','CD1','CD2','CD3','T1','T2','T3','T4','T5','T6','TC1','TC2','TC3','N1'];
+  const turnosEnf = ['M','M1','M2','M3','T','N'];
+  const turnos = trab.categoria === 'enfermera' ? turnosEnf : turnosAux;
+  const incidencias = ['L','F','AP','P','IT','VAC','HE','DH'];
+
+  // Determinar qué está activo actualmente
+  const turnoActivo = incidencias.includes(codActual) ? '' : (codActual || '');
+  const incidenciaActiva = incidencias.includes(codActual) ? codActual : '';
+
+  modal.innerHTML = `
+    <div class="modal-sheet">
+      <div class="modal-title">
+        ${nick} · ${dia}/${mesActual+1}
+        <button class="modal-close" onclick="cerrarModalCelda()">✕</button>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px">Turno actual: <strong>${labelActual||'vacío'}</strong></div>
+
+      <div style="font-size:12px;font-weight:600;margin-bottom:8px">Cambiar turno</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px">
+        ${turnos.map(t => `<button onclick="seleccionarTurnoModal('${t}')" 
+          id="btn-turno-${t}"
+          style="padding:6px 2px;border:1px solid ${turnoActivo===t?'var(--teal-dark)':'var(--border)'};
+          background:${turnoActivo===t?'var(--teal-dark)':'var(--white)'};
+          color:${turnoActivo===t?'white':'var(--text)'};
+          border-radius:var(--radius-sm);font-size:11px;font-weight:500;cursor:pointer">${t}</button>`).join('')}
+      </div>
+
+      <div style="font-size:12px;font-weight:600;margin-bottom:8px">O marcar incidencia</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px">
+        ${incidencias.map(i => `<button onclick="seleccionarIncidenciaModal('${i}')"
+          id="btn-inc-${i}"
+          style="padding:6px 2px;border:1px solid ${incidenciaActiva===i?'var(--amber)':'var(--border)'};
+          background:${incidenciaActiva===i?'var(--amber-light)':'var(--white)'};
+          color:${incidenciaActiva===i?'var(--amber)':'var(--text)'};
+          border-radius:var(--radius-sm);font-size:11px;font-weight:500;cursor:pointer">${i}</button>`).join('')}
+      </div>
+
+      <div style="font-size:12px;font-weight:600;margin-bottom:8px">Horas parciales (opcional)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Desde las</label>
+          <input type="time" class="form-input" id="celda-hora-ini">
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Hasta las</label>
+          <input type="time" class="form-input" id="celda-hora-fin">
+        </div>
+      </div>
+
+      <input type="hidden" id="celda-turno-sel" value="${turnoActivo}">
+      <input type="hidden" id="celda-inc-sel" value="${incidenciaActiva}">
+      <button class="btn-primary" onclick="guardarCelda('${trab.id}','${fecha}')">Guardar</button>
+    </div>`;
+
+  document.body.appendChild(modal);
+}
+
+function seleccionarTurnoModal(turno) {
+  // Deseleccionar incidencias
+  document.querySelectorAll('[id^="btn-inc-"]').forEach(b => {
+    b.style.border = '1px solid var(--border)';
+    b.style.background = 'var(--white)';
+    b.style.color = 'var(--text)';
+  });
+  document.getElementById('celda-inc-sel').value = '';
+
+  // Seleccionar/deseleccionar turno
+  const actual = document.getElementById('celda-turno-sel').value;
+  if (actual === turno) {
+    document.getElementById(`btn-turno-${turno}`).style.border = '1px solid var(--border)';
+    document.getElementById(`btn-turno-${turno}`).style.background = 'var(--white)';
+    document.getElementById(`btn-turno-${turno}`).style.color = 'var(--text)';
+    document.getElementById('celda-turno-sel').value = '';
+  } else {
+    document.querySelectorAll('[id^="btn-turno-"]').forEach(b => {
+      b.style.border = '1px solid var(--border)';
+      b.style.background = 'var(--white)';
+      b.style.color = 'var(--text)';
+    });
+    document.getElementById(`btn-turno-${turno}`).style.border = '1px solid var(--teal-dark)';
+    document.getElementById(`btn-turno-${turno}`).style.background = 'var(--teal-dark)';
+    document.getElementById(`btn-turno-${turno}`).style.color = 'white';
+    document.getElementById('celda-turno-sel').value = turno;
+  }
+}
+
+function seleccionarIncidenciaModal(inc) {
+  // Deseleccionar turnos
+  document.querySelectorAll('[id^="btn-turno-"]').forEach(b => {
+    b.style.border = '1px solid var(--border)';
+    b.style.background = 'var(--white)';
+    b.style.color = 'var(--text)';
+  });
+  document.getElementById('celda-turno-sel').value = '';
+
+  // Seleccionar/deseleccionar incidencia
+  const actual = document.getElementById('celda-inc-sel').value;
+  if (actual === inc) {
+    document.getElementById(`btn-inc-${inc}`).style.border = '1px solid var(--border)';
+    document.getElementById(`btn-inc-${inc}`).style.background = 'var(--white)';
+    document.getElementById(`btn-inc-${inc}`).style.color = 'var(--text)';
+    document.getElementById('celda-inc-sel').value = '';
+  } else {
+    document.querySelectorAll('[id^="btn-inc-"]').forEach(b => {
+      b.style.border = '1px solid var(--border)';
+      b.style.background = 'var(--white)';
+      b.style.color = 'var(--text)';
+    });
+    document.getElementById(`btn-inc-${inc}`).style.border = '1px solid var(--amber)';
+    document.getElementById(`btn-inc-${inc}`).style.background = 'var(--amber-light)';
+    document.getElementById(`btn-inc-${inc}`).style.color = 'var(--amber)';
+    document.getElementById('celda-inc-sel').value = inc;
+  }
+}
+
+function cerrarModalCelda() {
+  const m = document.getElementById('modal-celda');
+  if (m) m.remove();
+}
+
+async function guardarCelda(trabajadoraId, fecha) {
+  const turno = document.getElementById('celda-turno-sel').value || null;
+  const incidencia = document.getElementById('celda-inc-sel').value || null;
+  const horaIni = document.getElementById('celda-hora-ini').value || null;
+  const horaFin = document.getElementById('celda-hora-fin').value || null;
+
+  // Buscar si ya existe la celda
+  const { data: existente } = await sb.from('cuadrante')
+    .select('id')
+    .eq('trabajadora_id', trabajadoraId)
+    .eq('fecha', fecha)
+    .single();
+
+  if (existente) {
+    await sb.from('cuadrante').update({
+      codigo_turno: turno,
+      incidencia: incidencia,
+      hora_inicio_real: horaIni,
+      hora_fin_real: horaFin
+    }).eq('id', existente.id);
+  } else {
+    await sb.from('cuadrante').insert({
+      trabajadora_id: trabajadoraId,
+      fecha,
+      codigo_turno: turno,
+      incidencia: incidencia,
+      hora_inicio_real: horaIni,
+      hora_fin_real: horaFin,
+      es_servicio_min: false
+    });
+  }
+
+  cerrarModalCelda();
+  renderCuadrante();
+}
+
+// RECLAMAR DÍA (puesto compartido)
+async function reclamarDia(nick, dia) {
+  if (!confirm(`¿Confirmas que trabajarás el día ${dia}?`)) return;
+  const fecha = `${anioActual}-${String(mesActual+1).padStart(2,"0")}-${String(dia).padStart(2,"0")}`;
+  // Obtener el turno original de ese día
+  const { data } = await sb.from("cuadrante")
+    .select("turno_original, id")
+    .eq("trabajadora_id", currentUser.id)
+    .eq("fecha", fecha)
+    .single();
+  if (!data) return;
+  // Asignar a quien reclama: quitar SA
+  await sb.from("cuadrante").update({ incidencia: null, codigo_turno: data.turno_original })
+    .eq("id", data.id);
+  // Marcar el mismo día de la compañera como libre (L)
+  const { data: companera } = await sb.from("trabajadoras")
+    .select("id")
+    .eq("puesto_compartido", currentUser.puesto_compartido)
+    .neq("id", currentUser.id)
+    .single();
+  if (companera) {
+    await sb.from("cuadrante").update({ incidencia: "L", codigo_turno: null })
+      .eq("trabajadora_id", companera.id)
+      .eq("fecha", fecha);
+  }
+  alert(`✓ Día ${dia} reclamado correctamente`);
+  renderCuadrante();
+}
+
+// Verificar sesión al cargar
+// ============================================================
+// MI CUADRANTE — Vista calendario personal
+// ============================================================
+const MESES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const DIAS_ES = ['L','M','X','J','V','S','D'];
+
+let mesMio = new Date().getMonth();
+let anioMio = new Date().getFullYear();
+
+function cambiarMesMio(delta) {
+  mesMio += delta;
+  if (mesMio < 0) { mesMio = 11; anioMio--; }
+  if (mesMio > 11) { mesMio = 0; anioMio++; }
+  renderMiCuadrante();
+}
+
+const HORARIOS = {
+  M:'07:45-15:00', M1:'07:45-15:00', M2:'07:45-15:00', M3:'07:45-15:00',
+  CD:'07:45-15:00', CD1:'07:45-15:00', CD2:'07:45-15:00', CD3:'07:45-15:00',
+  T:'14:45-22:00', T1:'14:45-22:00', T2:'14:45-22:00', T3:'14:45-22:00',
+  T4:'14:45-22:00', T5:'14:45-22:00', T6:'14:45-22:00',
+  TC:'14:45-22:00', TC1:'14:45-22:00', TC2:'14:45-22:00', TC3:'14:45-22:00',
+  N:'21:45-08:00', N1:'21:45-08:00'
+};
+
+function getTurnoColor(cod) {
+  if (!cod) return '';
+  if (cod.startsWith('M') || cod.startsWith('CD')) return 't-M';
+  if (cod.startsWith('T') || cod.startsWith('TC') || cod.startsWith('CT')) return 't-T';
+  if (cod === 'N' || cod === 'N1') return 't-N';
+  const mapa = {L:'t-L',F:'t-F',AP:'t-AP',P:'t-P',HE:'t-HE',DH:'t-DH',IT:'t-IT',VAC:'t-VAC',SA:'t-SA'};
+  return mapa[cod] || 't-L';
+}
+
+async function renderMiCuadrante() {
+  if (!currentUser) return;
+  document.getElementById('mes-titulo-mio').textContent = MESES_ES[mesMio] + ' ' + anioMio;
+  const container = document.getElementById('micuadrante-container');
+  container.innerHTML = '<div class="loading"><div class="spinner"></div>Cargando...</div>';
+
+  const totalDias = new Date(anioMio, mesMio+1, 0).getDate();
+  const fechaIni = `${anioMio}-${String(mesMio+1).padStart(2,'0')}-01`;
+  const fechaFin = `${anioMio}-${String(mesMio+1).padStart(2,'0')}-${String(totalDias).padStart(2,'0')}`;
+
+  const { data } = await sb.from('cuadrante')
+    .select('fecha, codigo_turno, incidencia, turno_original')
+    .eq('trabajadora_id', currentUser.id)
+    .gte('fecha', fechaIni)
+    .lte('fecha', fechaFin);
+
+  // Construir mapa de días
+  const mapaD = {};
+  (data||[]).forEach(r => {
+    const dia = parseInt(r.fecha.split('-')[2]);
+    mapaD[dia] = r.incidencia === 'SA' 
+      ? { cod: 'SA', turno: r.turno_original || r.codigo_turno || '?' }
+      : { cod: r.incidencia || r.codigo_turno || '', turno: r.incidencia || r.codigo_turno || '' };
+  });
+
+  // Día de la semana del 1 del mes (0=Dom, ajustamos a Lun=0)
+  let primerDia = new Date(anioMio, mesMio, 1).getDay();
+  primerDia = primerDia === 0 ? 6 : primerDia - 1; // Lunes = 0
+
+  const hoy = new Date();
+  const esHoyFn = (d) => hoy.getFullYear()===anioMio && hoy.getMonth()===mesMio && hoy.getDate()===d;
+
+  let html = '<div class="cal-grid">';
+  // Cabeceras
+  DIAS_ES.forEach(d => html += `<div class="cal-header">${d}</div>`);
+
+  // Celdas vacías antes del día 1
+  for (let i = 0; i < primerDia; i++) {
+    html += '<div class="cal-dia otro-mes"></div>';
+  }
+
+  // Días del mes
+  for (let d = 1; d <= totalDias; d++) {
+    const diaSem = (primerDia + d - 1) % 7;
+    const esFinde = diaSem >= 5;
+    const esHoy = esHoyFn(d);
+    const celda = mapaD[d];
+    const cod = celda ? celda.cod : '';
+    const turnoLabel = celda ? celda.turno : '';
+    const cls = getTurnoColor(cod);
+    const horario = HORARIOS[turnoLabel] || '';
+
+    html += `<div class="cal-dia${esFinde?' finde':''}${esHoy?' hoy':''}">
+      <div class="cal-num" style="${esHoy?'color:var(--teal-dark);font-weight:700':''}">${d}</div>
+      ${cod ? `<div class="cal-turno ${cls}">${turnoLabel}</div>` : ''}
+      ${horario ? `<div class="cal-horario">${horario}</div>` : ''}
+    </div>`;
+  }
+
+  // Rellenar resto de la última semana
+  const totalCeldas = primerDia + totalDias;
+  const celdasRestantes = totalCeldas % 7 === 0 ? 0 : 7 - (totalCeldas % 7);
+  for (let i = 0; i < celdasRestantes; i++) {
+    html += '<div class="cal-dia otro-mes"></div>';
+  }
+
+  html += '</div>';
+
+  // Resumen del mes
+  let nM=0, nT=0, nN=0, nL=0;
+  Object.values(mapaD).forEach(c => {
+    const cod = c.turno || '';
+    if (cod.startsWith('M')||cod.startsWith('CD')) nM++;
+    else if (cod.startsWith('T')||cod.startsWith('TC')||cod.startsWith('CT')) nT++;
+    else if (cod==='N'||cod==='N1') nN++;
+    else if (cod==='L'||cod==='F') nL++;
+  });
+
+  html += `<div class="card">
+    <div class="card-title">Resumen ${MESES_ES[mesMio]}</div>
+    <div class="stat-row" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+      <div class="stat-box"><div class="stat-num" style="color:var(--teal)">${nM}</div><div class="stat-lbl">Mañanas</div></div>
+      <div class="stat-box"><div class="stat-num" style="color:var(--amber)">${nT}</div><div class="stat-lbl">Tardes</div></div>
+      <div class="stat-box"><div class="stat-num" style="color:var(--purple)">${nN}</div><div class="stat-lbl">Noches</div></div>
+      <div class="stat-box"><div class="stat-num" style="color:var(--gray)">${nL}</div><div class="stat-lbl">Libres</div></div>
+    </div>
+  </div>`;
+
+  container.innerHTML = html;
+}
+
+// ============================================================
+// PANEL DE ADMINISTRACIÓN
+// ============================================================
+async function cargarAdminPanel() {
+  if (!currentUser || currentUser.rol !== 'superadmin') return;
+  const { data: trabajadoras } = await sb.from('trabajadoras')
+    .select('id,nick,nombre,email,rol,activa,auth_id,en_cuadrante')
+    .order('nick');
+
+  const lista = document.getElementById('admin-trabajadoras-lista');
+  if (!trabajadoras || trabajadoras.length === 0) {
+    lista.innerHTML = '<div class="empty-state">No hay trabajadoras</div>';
+    return;
+  }
+
+  // Añadir botón + Nueva solo si no existe ya (evitar duplicados)
+  const btnExistente = document.getElementById('btn-nueva-trabajadora');
+  if (btnExistente) btnExistente.remove();
+  const cardTitle = document.querySelector('#page-admin .card-title');
+  if (cardTitle) {
+    cardTitle.style.justifyContent = 'space-between';
+    const btn = document.createElement('button');
+    btn.id = 'btn-nueva-trabajadora';
+    btn.textContent = '+ Nueva';
+    btn.onclick = abrirNuevaTrabajadora;
+    btn.style.cssText = 'background:var(--teal-dark);color:white;border:none;border-radius:var(--radius-sm);padding:4px 10px;font-size:11px;font-weight:500;cursor:pointer';
+    cardTitle.appendChild(btn);
+  }
+
+  let html = '';
+  trabajadoras.forEach(t => {
+    const ini = t.nick.split(' ').map(w=>w[0]).join('').slice(0,2);
+    const estado = !t.activa ? 
+      '<span class="badge-inactiva">Inactiva</span>' :
+      t.auth_id ? 
+        '<span class="badge-vinculada">✓ Acceso</span>' : 
+        '<span class="badge-pendiente">Sin acceso</span>';
+    
+    const rolColor = t.rol === 'superadmin' ? '#EEEDFE' : 
+      (t.rol === 'coordinadora' || t.rol === 'coordinadora_enfermera') ? '#E1F5EE' : 
+      t.rol === 'enfermera' ? '#E6F1FB' : '#F1EFE8';
+    const rolTextColor = t.rol === 'superadmin' ? '#3C3489' : 
+      (t.rol === 'coordinadora' || t.rol === 'coordinadora_enfermera') ? '#085041' : 
+      t.rol === 'enfermera' ? '#185FA5' : '#5F5E5A';
+
+    const rolLabels = {superadmin:'Superadmin',coordinadora:'Coord. aux.',coordinadora_enfermera:'Coord. enf.',enfermera:'Enfermera',auxiliar:'Auxiliar'};
+    const catLabels = {auxiliar:'Auxiliar',enfermera:'Enfermera',direccion:'Dirección',administrativo:'Administrativo',cocina:'Cocina',otro:'Otro'};
+    html += `<div class="admin-row">
+      <div class="admin-avatar" style="background:${rolColor};color:${rolTextColor}">${ini}</div>
+      <div class="admin-info">
+        <div class="admin-nick">${t.nick} <span style="font-size:10px;color:var(--text-muted)">${rolLabels[t.rol]||t.rol}</span></div>
+        <div class="admin-email">${t.email||'—'} · <span style="font-size:10px">${catLabels[t.categoria]||t.categoria||'—'}</span></div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        ${estado}
+        <button onclick="abrirEditarTrabajadora('${t.id}')" style="font-size:10px;border:none;background:none;color:var(--blue);cursor:pointer;padding:0">Editar</button>
+      </div>
+    </div>`;
+  });
+
+  lista.innerHTML = html;
+}
+
+let trabajadoraEditando = null;
+
+function abrirNuevaTrabajadora() {
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.id = 'modal-editar';
+  modal.innerHTML = `
+    <div class="modal-sheet">
+      <div class="modal-title">
+        Nueva trabajadora
+        <button class="modal-close" onclick="cerrarModal()">✕</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nick (cuadrante)</label>
+        <input class="form-input" id="edit-nick" placeholder="Ej: MARIA GARCIA">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nombre completo</label>
+        <input class="form-input" id="edit-nombre" placeholder="Ej: María García López">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email personal</label>
+        <input class="form-input" type="email" id="edit-email" placeholder="email@ejemplo.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Rol</label>
+        <select class="form-input" id="edit-rol">
+          <option value="auxiliar">Auxiliar</option>
+          <option value="enfermera">Enfermera</option>
+          <option value="coordinadora">Coordinadora auxiliares</option>
+          <option value="coordinadora_enfermera">Coordinadora enfermeras</option>
+          <option value="superadmin">Superadmin</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Categoría</label>
+        <select class="form-input" id="edit-categoria">
+          <option value="auxiliar">Auxiliar</option>
+          <option value="enfermera">Enfermera</option>
+          <option value="direccion">Dirección</option>
+          <option value="administrativo">Administrativo</option>
+          <option value="otro">Otro</option>
+        </select>
+      </div>
+      <div class="form-group" style="display:flex;align-items:center;justify-content:space-between">
+        <label class="form-label" style="margin:0">Aparece en el cuadrante</label>
+        <input type="checkbox" id="edit-cuadrante" checked style="width:18px;height:18px;cursor:pointer">
+      </div>
+      <button class="btn-primary" onclick="guardarNuevaTrabajadora()">Crear trabajadora</button>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+async function guardarNuevaTrabajadora() {
+  const nick = document.getElementById('edit-nick').value.trim();
+  const nombre = document.getElementById('edit-nombre').value.trim();
+  const email = document.getElementById('edit-email').value.trim();
+  const rol = document.getElementById('edit-rol').value;
+  const categoria = document.getElementById('edit-categoria').value;
+  const en_cuadrante = document.getElementById('edit-cuadrante').checked;
+
+  if (!nick || !nombre || !email) {
+    alert('Nick, nombre y email son obligatorios.'); return;
+  }
+
+  const { error } = await sb.from('trabajadoras').insert({
+    nick, nombre, email, rol, categoria, activa: true, en_cuadrante
+  });
+
+  if (error) {
+    alert('Error al crear: ' + error.message); return;
+  }
+
+  // Enviar invitación automáticamente
+  alert(`✓ Trabajadora ${nick} creada correctamente.
+
+Para que pueda acceder a la app, ve al panel de Supabase → Authentication → Invite user e introduce: ${email}
+
+O edita la trabajadora y usa el botón "Enviar invitación".`);
+  cerrarModal();
+  cargarAdminPanel();
+}
+
+async function abrirEditarTrabajadora(id) {
+  const { data: t } = await sb.from('trabajadoras').select('*').eq('id', id).single();
+  if (!t) return;
+  trabajadoraEditando = t;
+
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.id = 'modal-editar';
+  modal.innerHTML = `
+    <div class="modal-sheet">
+      <div class="modal-title">
+        Editar trabajadora
+        <button class="modal-close" onclick="cerrarModal()">✕</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nick (cuadrante)</label>
+        <input class="form-input" id="edit-nick" value="${t.nick || ''}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nombre completo</label>
+        <input class="form-input" id="edit-nombre" value="${t.nombre || ''}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email personal</label>
+        <input class="form-input" type="email" id="edit-email" value="${t.email || ''}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Rol</label>
+        <select class="form-input" id="edit-rol">
+          <option value="auxiliar" ${t.rol==='auxiliar'?'selected':''}>Auxiliar</option>
+          <option value="enfermera" ${t.rol==='enfermera'?'selected':''}>Enfermera</option>
+          <option value="coordinadora" ${t.rol==='coordinadora'?'selected':''}>Coordinadora auxiliares</option>
+          <option value="coordinadora_enfermera" ${t.rol==='coordinadora_enfermera'?'selected':''}>Coordinadora enfermeras</option>
+          <option value="superadmin" ${t.rol==='superadmin'?'selected':''}>Superadmin</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Categoría</label>
+        <select class="form-input" id="edit-categoria">
+          <option value="auxiliar" ${t.categoria==='auxiliar'?'selected':''}>Auxiliar</option>
+          <option value="enfermera" ${t.categoria==='enfermera'?'selected':''}>Enfermera</option>
+          <option value="direccion" ${t.categoria==='direccion'?'selected':''}>Dirección</option>
+          <option value="administrativo" ${t.categoria==='administrativo'?'selected':''}>Administrativo</option>
+          <option value="cocina" ${t.categoria==='cocina'?'selected':''}>Cocina</option>
+          <option value="otro" ${t.categoria==='otro'?'selected':''}>Otro</option>
+        </select>
+      </div>
+      <div class="form-group" style="display:flex;align-items:center;justify-content:space-between">
+        <label class="form-label" style="margin:0">Aparece en cuadrante</label>
+        <input type="checkbox" id="edit-cuadrante" ${t.en_cuadrante?'checked':''} style="width:18px;height:18px;cursor:pointer">
+      </div>
+      <div class="form-group" style="display:flex;align-items:center;justify-content:space-between">
+        <label class="form-label" style="margin:0">Activa en plantilla</label>
+        <input type="checkbox" id="edit-activa" ${t.activa?'checked':''} style="width:18px;height:18px;cursor:pointer">
+      </div>
+      ${!t.auth_id ? `
+      <div style="background:var(--amber-light);border-radius:var(--radius-sm);padding:10px;font-size:12px;color:var(--amber);margin-bottom:12px">
+        Sin acceso a la app. Envía la invitación para que pueda entrar.
+      </div>
+      <button class="btn-primary" style="background:var(--blue);margin-bottom:8px" onclick="invitarTrabajadora()">
+        Enviar invitación por email
+      </button>` : `
+      <div style="background:var(--teal-light);border-radius:var(--radius-sm);padding:10px;font-size:12px;color:var(--teal-dark);margin-bottom:12px">
+        ✓ Tiene acceso activo a la app.
+      </div>`}
+      <button class="btn-primary" onclick="guardarEdicion()">Guardar cambios</button>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+function cerrarModal() {
+  const m = document.getElementById('modal-editar');
+  if (m) m.remove();
+  trabajadoraEditando = null;
+}
+
+async function guardarEdicion() {
+  if (!trabajadoraEditando) return;
+  const nick = document.getElementById('edit-nick').value.trim();
+  const nombre = document.getElementById('edit-nombre').value.trim();
+  const email = document.getElementById('edit-email').value.trim();
+  const rol = document.getElementById('edit-rol').value;
+  const activa = document.getElementById('edit-activa').checked;
+  const categoria = document.getElementById('edit-categoria')?.value || trabajadoraEditando.categoria;
+  const en_cuadrante = document.getElementById('edit-cuadrante')?.checked ?? trabajadoraEditando.en_cuadrante;
+
+  const { error } = await sb.from('trabajadoras').update({ nick, nombre, email, rol, activa, categoria, en_cuadrante })
+    .eq('id', trabajadoraEditando.id);
+
+  if (error) { alert('Error al guardar. Inténtalo de nuevo.'); return; }
+  cerrarModal();
+  cargarAdminPanel();
+  alert('✓ Datos guardados correctamente');
+}
+
+async function invitarTrabajadora() {
+  if (!trabajadoraEditando) return;
+  const email = document.getElementById('edit-email').value.trim();
+  if (!email) { alert('Introduce el email antes de enviar la invitación.'); return; }
+  
+  // Actualizar email en trabajadoras primero
+  await sb.from('trabajadoras').update({ email }).eq('id', trabajadoraEditando.id);
+  
+  // Llamar a la función de invitación via Supabase Admin API
+  const { error } = await sb.auth.admin?.inviteUserByEmail(email);
+  if (error) {
+    // Si no tenemos acceso admin desde el cliente, mostrar instrucción
+    alert(`Para invitar a ${email}, ve a Supabase → Authentication → Users → Invite user e introduce ese email. Una vez acepte, su acceso se vinculará automáticamente.`);
+  } else {
+    alert(`✓ Invitación enviada a ${email}`);
+  }
+  cerrarModal();
+  cargarAdminPanel();
+}
+
+window.addEventListener('load', async () => {
+  // Manejar callback de invitación/reset desde email
+  const hash = window.location.hash;
+  if (hash && (hash.includes('access_token') || hash.includes('type=invite') || hash.includes('type=recovery'))) {
+    const { data: { session }, error } = await sb.auth.getSession();
+    if (session) {
+      // Pedir nueva contraseña si viene de invitación
+      const tipo = hash.includes('type=invite') || hash.includes('type=recovery') ? 'invite' : null;
+      if (tipo) {
+        mostrarCambioPassword();
+        return;
+      }
+      await cargarSesion();
+    }
+  } else {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) await cargarSesion();
+  }
+});
+
+function mostrarCambioPassword() {
+  document.getElementById('page-login').style.display = 'none';
+  document.getElementById('page-cambio-pass').style.display = 'flex';
+}
+
+async function guardarNuevaPassword() {
+  const pass1 = document.getElementById('nueva-pass').value;
+  const pass2 = document.getElementById('nueva-pass2').value;
+  const err = document.getElementById('cambio-pass-error');
+  err.style.display = 'none';
+  if (pass1.length < 8) {
+    err.textContent = 'La contraseña debe tener al menos 8 caracteres.';
+    err.style.display = 'block'; return;
+  }
+  if (pass1 !== pass2) {
+    err.textContent = 'Las contraseñas no coinciden.';
+    err.style.display = 'block'; return;
+  }
+  const { error } = await sb.auth.updateUser({ password: pass1 });
+  if (error) {
+    err.textContent = 'Error al guardar. Inténtalo de nuevo.';
+    err.style.display = 'block'; return;
+  }
+  document.getElementById('page-cambio-pass').style.display = 'none';
+  await cargarSesion();
+}
+</script>
+</body>
+</html>
