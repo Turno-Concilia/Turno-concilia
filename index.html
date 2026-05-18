@@ -640,6 +640,9 @@ let cuadranteCache = {};
 function claseColor(cod) {
   if (cod === 'SA') return 't-SA';
   if (!cod) return 't-L';
+  if (cod === 'M-HE') return 't-M';
+  if (cod === 'T-HE') return 't-T';
+  if (cod === 'N-HE') return 't-N';
   if (cod.startsWith('M')) return 't-M';
   if (cod.startsWith('CD')) return 't-CD';
   if (cod.startsWith('TC') || cod.startsWith('CT')) return 't-TC';
@@ -1542,8 +1545,8 @@ async function editarCelda(nick, dia, codActual, labelActual) {
   modal.id = 'modal-celda';
 
   // Turnos disponibles según categoría
-  const turnosAux = ['M1','M2','M3','M4','M5','M6','M7','M8','M9','M10','M11','M12','CD1','CD2','CD3','T1','T2','T3','T4','T5','T6','TC1','TC2','TC3','N1'];
-  const turnosEnf = ['M','M1','M2','M3','T','N'];
+  const turnosAux = ['M1','M2','M3','M4','M5','M6','M7','M8','M9','M10','M11','M12','CD1','CD2','CD3','T1','T2','T3','T4','T5','T6','TC1','TC2','TC3','N1','M-HE','T-HE','N-HE'];
+  const turnosEnf = ['M','M1','M2','M3','T','N','M-HE','T-HE','N-HE'];
   const turnos = trab.categoria === 'enfermera' ? turnosEnf : turnosAux;
   const incidencias = ['L','F','AP','P','IT','VAC','HE','DH'];
 
