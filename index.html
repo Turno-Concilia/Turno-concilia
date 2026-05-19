@@ -914,97 +914,143 @@ async function renderSM() {
   const container = document.querySelector('#page-sm .card');
   if (!container) return;
 
-  // Determinar categoría a mostrar según rol
-  const cat = currentUser.rol === 'coordinadora_enfermera' ? 'enfermera' : 
+  // Determinar categoría según rol
+  const cat = currentUser.rol === 'coordinadora_enfermera' ? 'enfermera' :
                currentUser.rol === 'superadmin' ? null : 'auxiliar';
 
   // Obtener trabajadoras
   let query = sb.from('trabajadoras').select('id,nick,categoria').eq('activa', true).eq('en_cuadrante', true).order('nick');
   if (cat) query = query.eq('categoria', cat);
   const { data: trabs } = await query;
-
   if (!trabs || trabs.length === 0) return;
 
   const hoy = new Date();
-  const fechaIni = `${hoy.getFullYear()}-01-01`;
-  const fechaFin = `${hoy.getFullYear()}-12-31`;
+  const anioActualSM = hoy.getFullYear();
 
-  // Obtener todos los días del año para todas las trabajadoras
-  const ids = trabs.map(t => t.id);
-  let allDias = [];
-  for (let i = 0; i < ids.length; i += 20) {
-    const chunk = ids.slice(i, i+20);
-    const { data } = await sb.from('cuadrante')
-      .select('trabajadora_id, codigo_turno, incidencia')
-      .gte('fecha', fechaIni).lte('fecha', fechaFin)
-      .in('trabajadora_id', chunk);
-    if (data) allDias = allDias.concat(data);
+  container.innerHTML = `
+    <div class="card-title">Balance de horas por trabajadora</div>
+    <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin-bottom:12px">
+      <select class="form-input" id="sm-trabajadora" onchange="calcularBalanceTrabajadora()">
+        <option value="">— Selecciona trabajadora —</option>
+        ${trabs.map(t => `<option value="${t.id}">${t.nick}</option>`).join('')}
+      </select>
+      <select class="form-input" id="sm-periodo" onchange="calcularBalanceTrabajadora()" style="width:auto;font-size:11px">
+        <option value="mes">Este mes</option>
+        <option value="trimestre">Este trimestre</option>
+        <option value="anio" selected>Este año</option>
+      </select>
+    </div>
+    <div id="sm-resultado"><div class="empty-state">Selecciona una trabajadora para ver su balance</div></div>`;
+}
+
+async function calcularBalanceTrabajadora() {
+  const trabId = document.getElementById('sm-trabajadora').value;
+  const periodo = document.getElementById('sm-periodo').value;
+  const resultado = document.getElementById('sm-resultado');
+  if (!trabId) return;
+
+  resultado.innerHTML = '<div style="font-size:12px;color:var(--text-muted);padding:8px">Calculando...</div>';
+
+  const hoy = new Date();
+  let fechaIni, fechaFin, periodoLabel;
+
+  if (periodo === 'mes') {
+    fechaIni = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-01`;
+    const ultimo = new Date(hoy.getFullYear(), hoy.getMonth()+1, 0).getDate();
+    fechaFin = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-${String(ultimo).padStart(2,'0')}`;
+    periodoLabel = `${MESES_ES[hoy.getMonth()]} ${hoy.getFullYear()}`;
+  } else if (periodo === 'trimestre') {
+    const trim = Math.floor(hoy.getMonth() / 3);
+    const mesIni = trim * 3;
+    const mesFin = mesIni + 2;
+    fechaIni = `${hoy.getFullYear()}-${String(mesIni+1).padStart(2,'0')}-01`;
+    const ultimoDia = new Date(hoy.getFullYear(), mesFin+1, 0).getDate();
+    fechaFin = `${hoy.getFullYear()}-${String(mesFin+1).padStart(2,'0')}-${String(ultimoDia).padStart(2,'0')}`;
+    periodoLabel = `T${trim+1} ${hoy.getFullYear()}`;
+  } else {
+    fechaIni = `${hoy.getFullYear()}-01-01`;
+    fechaFin = `${hoy.getFullYear()}-12-31`;
+    periodoLabel = `Año ${hoy.getFullYear()}`;
   }
 
-  // Calcular horas por trabajadora
-  const horasPorTrab = {};
-  allDias.forEach(d => {
+  // Obtener días del cuadrante
+  const { data: dias } = await sb.from('cuadrante')
+    .select('fecha, codigo_turno, incidencia')
+    .eq('trabajadora_id', trabId)
+    .gte('fecha', fechaIni).lte('fecha', fechaFin);
+
+  let horasTrabajadas = 0;
+  let desglose = { mananas:0, tardes:0, noches:0, permisos:0, bajas:0, dh:0 };
+
+  (dias||[]).forEach(d => {
     const cod = d.incidencia || d.codigo_turno || '';
     const h = getHorasCodigo(cod);
-    if (!horasPorTrab[d.trabajadora_id]) horasPorTrab[d.trabajadora_id] = 0;
-    horasPorTrab[d.trabajadora_id] += h;
+    horasTrabajadas += h;
+    if (['M','M1','M2','M3','M4','M5','M6','M7','M8','M9','M10','M11','M12','CD','CD1','CD2','CD3'].includes(cod)) desglose.mananas += h;
+    else if (['T','T1','T2','T3','T4','T5','T6','TC','TC1','TC2','TC3'].includes(cod)) desglose.tardes += h;
+    else if (['N','N1'].includes(cod)) desglose.noches += h;
+    else if (cod === 'P') desglose.permisos += h;
+    else if (cod === 'IT') desglose.bajas += h;
+    else if (cod === 'DH') desglose.dh += h;
   });
 
-  // Obtener deudas
+  // Deudas
   const { data: deudas } = await sb.from('bolsa_deudas')
-    .select('acreedora_id, deudora_id, horas')
-    .eq('estado', 'pendiente')
-    .or(ids.map(id => `acreedora_id.eq.${id}`).join(',') + ',' + ids.map(id => `deudora_id.eq.${id}`).join(','));
+    .select('horas, acreedora_id, deudora_id')
+    .or(`acreedora_id.eq.${trabId},deudora_id.eq.${trabId}`)
+    .eq('estado', 'pendiente');
 
-  const deudaPor = {};
-  const favorPor = {};
+  let horasAFavor = 0, horasDeuda = 0;
   (deudas||[]).forEach(d => {
-    if (!deudaPor[d.deudora_id]) deudaPor[d.deudora_id] = 0;
-    if (!favorPor[d.acreedora_id]) favorPor[d.acreedora_id] = 0;
-    deudaPor[d.deudora_id] += parseFloat(d.horas);
-    favorPor[d.acreedora_id] += parseFloat(d.horas);
+    if (d.acreedora_id === trabId) horasAFavor += parseFloat(d.horas);
+    else horasDeuda += parseFloat(d.horas);
   });
 
-  let html = `<div class="card-title">Balance de horas ${hoy.getFullYear()}</div>
-  <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px">Horas efectivas acumuladas en el año · Ordenado por balance</div>
-  <table style="width:100%;border-collapse:collapse;font-size:12px">
-    <thead>
-      <tr style="background:var(--teal-dark);color:white">
-        <th style="padding:8px 6px;text-align:left;border-radius:6px 0 0 0">Trabajadora</th>
-        <th style="padding:8px 4px;text-align:center">Horas</th>
-        <th style="padding:8px 4px;text-align:center">Deben</th>
-        <th style="padding:8px 4px;text-align:center">Debes</th>
-        <th style="padding:8px 6px;text-align:center;border-radius:0 6px 0 0">Balance</th>
-      </tr>
-    </thead>
-    <tbody>`;
+  const balance = horasTrabajadas + horasAFavor - horasDeuda;
+  const nick = document.getElementById('sm-trabajadora').selectedOptions[0].text;
 
-  // Sort by balance
-  const sorted = trabs.sort((a,b) => {
-    const balA = (horasPorTrab[a.id]||0) + (favorPor[a.id]||0) - (deudaPor[a.id]||0);
-    const balB = (horasPorTrab[b.id]||0) + (favorPor[b.id]||0) - (deudaPor[b.id]||0);
-    return balB - balA;
-  });
-
-  sorted.forEach((t, i) => {
-    const horas = horasPorTrab[t.id] || 0;
-    const favor = favorPor[t.id] || 0;
-    const deuda = deudaPor[t.id] || 0;
-    const balance = horas + favor - deuda;
-    const bg = i % 2 === 0 ? '#F9F9F9' : '#FFFFFF';
-    const balColor = balance >= 0 ? '#085041' : '#C0392B';
-
-    html += `<tr style="background:${bg}">
-      <td style="padding:8px 6px;font-weight:500">${t.nick}</td>
-      <td style="padding:8px 4px;text-align:center;color:var(--teal-dark)">${horas.toFixed(2)}</td>
-      <td style="padding:8px 4px;text-align:center;color:#085041">${favor > 0 ? '+'+favor.toFixed(2) : '—'}</td>
-      <td style="padding:8px 4px;text-align:center;color:#C0392B">${deuda > 0 ? '-'+deuda.toFixed(2) : '—'}</td>
-      <td style="padding:8px 6px;text-align:center;font-weight:700;color:${balColor}">${balance >= 0 ? '+' : ''}${balance.toFixed(2)}</td>
-    </tr>`;
-  });
-
-  html += '</tbody></table>';
-  container.innerHTML = html;
+  resultado.innerHTML = `
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px">${nick} · ${periodoLabel} · ${(dias||[]).length} días</div>
+    <div style="background:var(--teal-light);border-radius:10px;padding:14px;text-align:center;margin-bottom:10px">
+      <div style="font-size:32px;font-weight:700;color:var(--teal-dark)">${horasTrabajadas.toFixed(2)}h</div>
+      <div style="font-size:12px;color:var(--teal-dark);margin-top:2px">Horas efectivas trabajadas</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px">
+      <div style="background:#F5F5F5;border-radius:8px;padding:8px;text-align:center">
+        <div style="font-size:16px;font-weight:600;color:#085041">${desglose.mananas.toFixed(2)}h</div>
+        <div style="font-size:10px;color:var(--text-muted)">☀️ Mañanas</div>
+      </div>
+      <div style="background:#F5F5F5;border-radius:8px;padding:8px;text-align:center">
+        <div style="font-size:16px;font-weight:600;color:#E65100">${desglose.tardes.toFixed(2)}h</div>
+        <div style="font-size:10px;color:var(--text-muted)">🌅 Tardes</div>
+      </div>
+      <div style="background:#F5F5F5;border-radius:8px;padding:8px;text-align:center">
+        <div style="font-size:16px;font-weight:600;color:#4527A0">${desglose.noches.toFixed(2)}h</div>
+        <div style="font-size:10px;color:var(--text-muted)">🌙 Noches</div>
+      </div>
+      ${desglose.permisos > 0 ? `<div style="background:#F5F5F5;border-radius:8px;padding:8px;text-align:center">
+        <div style="font-size:16px;font-weight:600;color:#185FA5">${desglose.permisos.toFixed(2)}h</div>
+        <div style="font-size:10px;color:var(--text-muted)">📋 Permisos</div>
+      </div>` : ''}
+      ${desglose.bajas > 0 ? `<div style="background:#F5F5F5;border-radius:8px;padding:8px;text-align:center">
+        <div style="font-size:16px;font-weight:600;color:#C0392B">${desglose.bajas.toFixed(2)}h</div>
+        <div style="font-size:10px;color:var(--text-muted)">🏥 Baja</div>
+      </div>` : ''}
+      ${desglose.dh > 0 ? `<div style="background:#F5F5F5;border-radius:8px;padding:8px;text-align:center">
+        <div style="font-size:16px;font-weight:600;color:#633806">${desglose.dh.toFixed(2)}h</div>
+        <div style="font-size:10px;color:var(--text-muted)">↩️ Dev. horas</div>
+      </div>` : ''}
+    </div>
+    ${(horasAFavor > 0 || horasDeuda > 0) ? `
+    <div style="background:#FAEEDA;border-radius:10px;padding:12px;margin-bottom:10px">
+      <div style="font-size:12px;font-weight:600;color:#633806;margin-bottom:6px">Bolsa de deudas pendientes</div>
+      ${horasAFavor > 0 ? `<div style="font-size:12px;color:#085041">↑ Le deben: <strong>+${horasAFavor.toFixed(2)}h</strong></div>` : ''}
+      ${horasDeuda > 0 ? `<div style="font-size:12px;color:#C0392B">↓ Debe: <strong>-${horasDeuda.toFixed(2)}h</strong></div>` : ''}
+    </div>` : ''}
+    <div style="background:${balance >= 0 ? '#E1F5EE' : '#FDECEA'};border-radius:10px;padding:12px;text-align:center">
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">Balance neto del periodo</div>
+      <div style="font-size:24px;font-weight:700;color:${balance >= 0 ? '#085041' : '#C0392B'}">${balance >= 0 ? '+' : ''}${balance.toFixed(2)}h</div>
+    </div>`;
 }
 
 function renderSM_old() {
