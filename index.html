@@ -688,7 +688,7 @@ async function doLogin() {
 
 // LOGIN DEMO (sin Supabase Auth, carga directamente de la tabla)
 async function loginDemo(tipo) {
-  const emails = { superadmin:'andreapastorzorita@hotmail.com', coordinadora:'inof1223@hotmail.com', auxiliar:'isoler@ayto-denia.es', auxiliar2:'ana.garcia@santallucia.es', enfermera:'anap@santallucia.es' };
+  const emails = { superadmin:'andreapastorzorita@hotmail.com', coordinadora:'inof1223@hotmail.com', auxiliar:'isoler@ayto-denia.es', auxiliar2:'ana.garcia@santallucia.es', enfermera:'apastor@ayto-denia.es' };
   const { data } = await sb.from('trabajadoras').select('*').eq('email', emails[tipo]).single();
   if (data) {
     currentUser = data;
