@@ -106,7 +106,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .t-VAC{background:var(--green-light);color:var(--green)}
 .t-SA{background:#FAEEDA;color:#854F0B;border:1px dashed #BA7517;cursor:pointer}
 .col-findes{background:#FAFAF8}
-.col-hoy{background:#FFF8E6!important}
+.col-hoy{background:#FFF3CD!important;border-top:3px solid #F0A500!important}
 
 /* SM */
 .sm-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:7px 0;border-bottom:0.5px solid var(--border)}
@@ -715,6 +715,16 @@ async function iniciarApp() {
     } else {
       navAdmin.style.display = 'none';
     }
+  }
+  // Establecer categoría por defecto según la categoría del usuario
+  if (currentUser.categoria === 'enfermera') {
+    categoriaActual = 'enfermera';
+    const btnAux = document.getElementById('cat-auxiliar');
+    const btnEnf = document.getElementById('cat-enfermera');
+    if (btnAux) btnAux.classList.remove('active');
+    if (btnEnf) btnEnf.classList.add('active');
+  } else {
+    categoriaActual = 'auxiliar';
   }
   await cargarTrabajadoras();
   renderCuadrante();
