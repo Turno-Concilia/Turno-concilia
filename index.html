@@ -548,6 +548,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <button onclick="cambiarMesMio(1)"><svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:var(--text);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><polyline points="9 18 15 12 9 6"/></svg></button>
     </div>
     <div id="micuadrante-container"></div>
+
+    <!-- SUMATORIO DE HORAS -->
+    <div class="card" style="margin-top:12px">
+      <div class="card-title" style="justify-content:space-between">
+        <span>Balance de horas</span>
+        <div style="display:flex;gap:6px;align-items:center">
+          <select id="horas-periodo" class="form-input" style="font-size:11px;padding:4px 8px;width:auto" onchange="calcularHorasPeriodo()">
+            <option value="mes">Este mes</option>
+            <option value="trimestre">Este trimestre</option>
+            <option value="anio">Este año</option>
+          </select>
+        </div>
+      </div>
+      <div id="horas-container"></div>
+    </div>
   </div>
 
   <!-- ADMIN PAGE -->
@@ -1563,7 +1578,7 @@ function showPage(nombre) {
   document.getElementById('page-'+nombre).classList.add('active');
   if (document.getElementById('nav-'+nombre)) document.getElementById('nav-'+nombre).classList.add('active');
   if (nombre === 'admin') cargarAdminPanel();
-  if (nombre === 'micuadrante') renderMiCuadrante();
+  if (nombre === 'micuadrante') { renderMiCuadrante(); calcularHorasPeriodo(); }
 }
 
 // ============================================================
@@ -1786,6 +1801,8 @@ function cambiarMesMio(delta) {
   if (mesMio < 0) { mesMio = 11; anioMio--; }
   if (mesMio > 11) { mesMio = 0; anioMio++; }
   renderMiCuadrante();
+  const periodo = document.getElementById('horas-periodo');
+  if (periodo && periodo.value === 'mes') calcularHorasPeriodo();
 }
 
 const HORARIOS = {
@@ -1907,6 +1924,152 @@ async function renderMiCuadrante() {
   </div>`;
 
   container.innerHTML = html;
+}
+
+// ============================================================
+// SUMATORIO DE HORAS — Mi Turno
+// ============================================================
+
+const HORAS_TURNO = {
+  // Mañanas
+  'M':7.25,'M1':7.25,'M2':7.25,'M3':7.25,'M4':7.25,'M5':7.25,'M6':7.25,
+  'M7':7.25,'M8':7.25,'M9':7.25,'M10':7.25,'M11':7.25,'M12':7.25,
+  // Centro día
+  'CD':7.25,'CD1':7.25,'CD2':7.25,'CD3':7.25,
+  // Tardes
+  'T':7.25,'T1':7.25,'T2':7.25,'T3':7.25,'T4':7.25,'T5':7.25,'T6':7.25,
+  // Tardes centro día
+  'TC':7.25,'TC1':7.25,'TC2':7.25,'TC3':7.25,'CT1':7.25,'CT2':7.25,'CT3':7.25,
+  // Noches
+  'N':10.25,'N1':10.25,
+  // Incidencias computables
+  'P':7.25,'IT':4.15,'DH':7.25,
+  // HE y M-HE, T-HE, N-HE = 0 (se abonan)
+  'HE':0,'M-HE':0,'T-HE':0,'N-HE':0,
+  // Libres = 0
+  'L':0,'F':0,'AP':0,'VAC':0
+};
+
+function getHorasCodigo(cod) {
+  if (!cod) return 0;
+  return HORAS_TURNO[cod] ?? 0;
+}
+
+async function calcularHorasPeriodo() {
+  if (!currentUser) return;
+  const periodo = document.getElementById('horas-periodo').value;
+  const hoy = new Date();
+  let fechaIni, fechaFin;
+
+  if (periodo === 'mes') {
+    fechaIni = `${anioMio}-${String(mesMio+1).padStart(2,'0')}-01`;
+    const ultimo = new Date(anioMio, mesMio+1, 0).getDate();
+    fechaFin = `${anioMio}-${String(mesMio+1).padStart(2,'0')}-${String(ultimo).padStart(2,'0')}`;
+  } else if (periodo === 'trimestre') {
+    const trimestre = Math.floor(hoy.getMonth() / 3);
+    const mesIni = trimestre * 3;
+    const mesFin = mesIni + 2;
+    fechaIni = `${hoy.getFullYear()}-${String(mesIni+1).padStart(2,'0')}-01`;
+    const ultimoDia = new Date(hoy.getFullYear(), mesFin+1, 0).getDate();
+    fechaFin = `${hoy.getFullYear()}-${String(mesFin+1).padStart(2,'0')}-${String(ultimoDia).padStart(2,'0')}`;
+  } else {
+    fechaIni = `${hoy.getFullYear()}-01-01`;
+    fechaFin = `${hoy.getFullYear()}-12-31`;
+  }
+
+  const container = document.getElementById('horas-container');
+  container.innerHTML = '<div style="font-size:12px;color:var(--text-muted);padding:8px 0">Calculando...</div>';
+
+  // Obtener días del cuadrante en el periodo
+  const { data: dias } = await sb.from('cuadrante')
+    .select('fecha, codigo_turno, incidencia')
+    .eq('trabajadora_id', currentUser.id)
+    .gte('fecha', fechaIni)
+    .lte('fecha', fechaFin);
+
+  let horasTrabajadas = 0;
+  let desglose = { mananas:0, tardes:0, noches:0, permisos:0, bajas:0, dh:0 };
+
+  (dias||[]).forEach(d => {
+    const cod = d.incidencia || d.codigo_turno || '';
+    const h = getHorasCodigo(cod);
+    horasTrabajadas += h;
+    if (['M','M1','M2','M3','M4','M5','M6','M7','M8','M9','M10','M11','M12','CD','CD1','CD2','CD3'].includes(cod)) desglose.mananas += h;
+    else if (['T','T1','T2','T3','T4','T5','T6','TC','TC1','TC2','TC3'].includes(cod)) desglose.tardes += h;
+    else if (['N','N1'].includes(cod)) desglose.noches += h;
+    else if (cod === 'P') desglose.permisos += h;
+    else if (cod === 'IT') desglose.bajas += h;
+    else if (cod === 'DH') desglose.dh += h;
+  });
+
+  // Obtener deudas pendientes
+  const { data: deudas } = await sb.from('bolsa_deudas')
+    .select('horas, acreedora_id, deudora_id, estado')
+    .or(`acreedora_id.eq.${currentUser.id},deudora_id.eq.${currentUser.id}`)
+    .eq('estado', 'pendiente');
+
+  let horasAFavor = 0;
+  let horasDeuda = 0;
+  (deudas||[]).forEach(d => {
+    if (d.acreedora_id === currentUser.id) horasAFavor += parseFloat(d.horas);
+    else horasDeuda += parseFloat(d.horas);
+  });
+
+  const balance = horasTrabajadas + horasAFavor - horasDeuda;
+  const periodoLabel = periodo === 'mes' ? `${MESES_ES[mesMio]} ${anioMio}` : 
+                       periodo === 'trimestre' ? `T${Math.floor(hoy.getMonth()/3)+1} ${hoy.getFullYear()}` : 
+                       `Año ${hoy.getFullYear()}`;
+
+  container.innerHTML = `
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px">${periodoLabel} · ${(dias||[]).length} días con registro</div>
+    
+    <!-- Total horas -->
+    <div style="background:var(--teal-light);border-radius:10px;padding:14px;text-align:center;margin-bottom:10px">
+      <div style="font-size:32px;font-weight:700;color:var(--teal-dark)">${horasTrabajadas.toFixed(2)}h</div>
+      <div style="font-size:12px;color:var(--teal-dark);margin-top:2px">Horas efectivas trabajadas</div>
+    </div>
+
+    <!-- Desglose -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px">
+      <div style="background:#F5F5F5;border-radius:8px;padding:8px;text-align:center">
+        <div style="font-size:16px;font-weight:600;color:#085041">${desglose.mananas.toFixed(2)}h</div>
+        <div style="font-size:10px;color:var(--text-muted)">☀️ Mañanas</div>
+      </div>
+      <div style="background:#F5F5F5;border-radius:8px;padding:8px;text-align:center">
+        <div style="font-size:16px;font-weight:600;color:#E65100">${desglose.tardes.toFixed(2)}h</div>
+        <div style="font-size:10px;color:var(--text-muted)">🌅 Tardes</div>
+      </div>
+      <div style="background:#F5F5F5;border-radius:8px;padding:8px;text-align:center">
+        <div style="font-size:16px;font-weight:600;color:#4527A0">${desglose.noches.toFixed(2)}h</div>
+        <div style="font-size:10px;color:var(--text-muted)">🌙 Noches</div>
+      </div>
+      ${desglose.permisos > 0 ? `<div style="background:#F5F5F5;border-radius:8px;padding:8px;text-align:center">
+        <div style="font-size:16px;font-weight:600;color:#185FA5">${desglose.permisos.toFixed(2)}h</div>
+        <div style="font-size:10px;color:var(--text-muted)">📋 Permisos</div>
+      </div>` : ''}
+      ${desglose.bajas > 0 ? `<div style="background:#F5F5F5;border-radius:8px;padding:8px;text-align:center">
+        <div style="font-size:16px;font-weight:600;color:#C0392B">${desglose.bajas.toFixed(2)}h</div>
+        <div style="font-size:10px;color:var(--text-muted)">🏥 Baja</div>
+      </div>` : ''}
+      ${desglose.dh > 0 ? `<div style="background:#F5F5F5;border-radius:8px;padding:8px;text-align:center">
+        <div style="font-size:16px;font-weight:600;color:#633806">${desglose.dh.toFixed(2)}h</div>
+        <div style="font-size:10px;color:var(--text-muted)">↩️ Dev. horas</div>
+      </div>` : ''}
+    </div>
+
+    <!-- Deudas -->
+    ${(horasAFavor > 0 || horasDeuda > 0) ? `
+    <div style="background:#FAEEDA;border-radius:10px;padding:12px;margin-bottom:10px">
+      <div style="font-size:12px;font-weight:600;color:#633806;margin-bottom:6px">Bolsa de deudas pendientes</div>
+      ${horasAFavor > 0 ? `<div style="font-size:12px;color:#085041">↑ Te deben: <strong>+${horasAFavor.toFixed(2)}h</strong></div>` : ''}
+      ${horasDeuda > 0 ? `<div style="font-size:12px;color:#C0392B">↓ Debes: <strong>-${horasDeuda.toFixed(2)}h</strong></div>` : ''}
+    </div>` : ''}
+
+    <!-- Balance final -->
+    <div style="background:${balance >= 0 ? '#E1F5EE' : '#FDECEA'};border-radius:10px;padding:12px;text-align:center">
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">Balance neto del periodo</div>
+      <div style="font-size:24px;font-weight:700;color:${balance >= 0 ? '#085041' : '#C0392B'}">${balance >= 0 ? '+' : ''}${balance.toFixed(2)}h</div>
+    </div>`;
 }
 
 // ============================================================
