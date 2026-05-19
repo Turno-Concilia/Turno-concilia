@@ -716,16 +716,22 @@ async function iniciarApp() {
       navAdmin.style.display = 'none';
     }
   }
+  // Resetear siempre al mes actual
+  mesActual = new Date().getMonth();
+  anioActual = new Date().getFullYear();
+
   // Establecer categoría por defecto según la categoría del usuario
-  if (currentUser.categoria === 'enfermera') {
-    categoriaActual = 'enfermera';
-    const btnAux = document.getElementById('cat-auxiliar');
-    const btnEnf = document.getElementById('cat-enfermera');
-    if (btnAux) btnAux.classList.remove('active');
-    if (btnEnf) btnEnf.classList.add('active');
-  } else {
-    categoriaActual = 'auxiliar';
+  const esEnfermera = ['enfermera','coordinadora_enfermera'].includes(currentUser.rol) || currentUser.categoria === 'enfermera';
+  categoriaActual = esEnfermera ? 'enfermera' : 'auxiliar';
+
+  // Actualizar botones de categoría
+  const btnAux = document.getElementById('cat-auxiliar');
+  const btnEnf = document.getElementById('cat-enfermera');
+  if (btnAux && btnEnf) {
+    btnAux.classList.toggle('active', !esEnfermera);
+    btnEnf.classList.toggle('active', esEnfermera);
   }
+
   await cargarTrabajadoras();
   renderCuadrante();
   renderSM();
