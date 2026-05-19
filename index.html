@@ -583,8 +583,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <button class="nav-item active" id="nav-cuadrante" onclick="showPage('cuadrante')">
       <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Cuadrante
     </button>
-    <button class="nav-item" id="nav-sm" onclick="showPage('sm')">
-      <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Plantilla
+    <button class="nav-item" id="nav-sm" onclick="showPage('sm')" style="display:none">
+      <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Horas
     </button>
     <button class="nav-item" id="nav-solicitudes" onclick="showPage('solicitudes')">
       <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>Solicitudes
@@ -727,11 +727,13 @@ async function iniciarApp() {
   // Mostrar pestaña admin solo para superadmin
   const navAdmin = document.getElementById('nav-admin');
   if (navAdmin) {
-    if (currentUser && currentUser.rol === 'superadmin') {
-      navAdmin.style.display = 'flex';
-    } else {
-      navAdmin.style.display = 'none';
-    }
+    navAdmin.style.display = currentUser && currentUser.rol === 'superadmin' ? 'flex' : 'none';
+  }
+  // Mostrar pestaña Horas solo para coordinadoras y superadmin
+  const navSm = document.getElementById('nav-sm');
+  if (navSm) {
+    const esGestor = currentUser && ['coordinadora','coordinadora_enfermera','superadmin'].includes(currentUser.rol);
+    navSm.style.display = esGestor ? 'flex' : 'none';
   }
   // Resetear siempre al mes actual
   mesActual = new Date().getMonth();
@@ -905,7 +907,107 @@ function cambiarMes(delta) {
 }
 
 // SERVICIOS MÍNIMOS
-function renderSM() {
+async function renderSM() {
+  const esGestor = currentUser && ['coordinadora','coordinadora_enfermera','superadmin'].includes(currentUser.rol);
+  if (!esGestor) return;
+
+  const container = document.querySelector('#page-sm .card');
+  if (!container) return;
+
+  // Determinar categoría a mostrar según rol
+  const cat = currentUser.rol === 'coordinadora_enfermera' ? 'enfermera' : 
+               currentUser.rol === 'superadmin' ? null : 'auxiliar';
+
+  // Obtener trabajadoras
+  let query = sb.from('trabajadoras').select('id,nick,categoria').eq('activa', true).eq('en_cuadrante', true).order('nick');
+  if (cat) query = query.eq('categoria', cat);
+  const { data: trabs } = await query;
+
+  if (!trabs || trabs.length === 0) return;
+
+  const hoy = new Date();
+  const fechaIni = `${hoy.getFullYear()}-01-01`;
+  const fechaFin = `${hoy.getFullYear()}-12-31`;
+
+  // Obtener todos los días del año para todas las trabajadoras
+  const ids = trabs.map(t => t.id);
+  let allDias = [];
+  for (let i = 0; i < ids.length; i += 20) {
+    const chunk = ids.slice(i, i+20);
+    const { data } = await sb.from('cuadrante')
+      .select('trabajadora_id, codigo_turno, incidencia')
+      .gte('fecha', fechaIni).lte('fecha', fechaFin)
+      .in('trabajadora_id', chunk);
+    if (data) allDias = allDias.concat(data);
+  }
+
+  // Calcular horas por trabajadora
+  const horasPorTrab = {};
+  allDias.forEach(d => {
+    const cod = d.incidencia || d.codigo_turno || '';
+    const h = getHorasCodigo(cod);
+    if (!horasPorTrab[d.trabajadora_id]) horasPorTrab[d.trabajadora_id] = 0;
+    horasPorTrab[d.trabajadora_id] += h;
+  });
+
+  // Obtener deudas
+  const { data: deudas } = await sb.from('bolsa_deudas')
+    .select('acreedora_id, deudora_id, horas')
+    .eq('estado', 'pendiente')
+    .or(ids.map(id => `acreedora_id.eq.${id}`).join(',') + ',' + ids.map(id => `deudora_id.eq.${id}`).join(','));
+
+  const deudaPor = {};
+  const favorPor = {};
+  (deudas||[]).forEach(d => {
+    if (!deudaPor[d.deudora_id]) deudaPor[d.deudora_id] = 0;
+    if (!favorPor[d.acreedora_id]) favorPor[d.acreedora_id] = 0;
+    deudaPor[d.deudora_id] += parseFloat(d.horas);
+    favorPor[d.acreedora_id] += parseFloat(d.horas);
+  });
+
+  let html = `<div class="card-title">Balance de horas ${hoy.getFullYear()}</div>
+  <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px">Horas efectivas acumuladas en el año · Ordenado por balance</div>
+  <table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead>
+      <tr style="background:var(--teal-dark);color:white">
+        <th style="padding:8px 6px;text-align:left;border-radius:6px 0 0 0">Trabajadora</th>
+        <th style="padding:8px 4px;text-align:center">Horas</th>
+        <th style="padding:8px 4px;text-align:center">Deben</th>
+        <th style="padding:8px 4px;text-align:center">Debes</th>
+        <th style="padding:8px 6px;text-align:center;border-radius:0 6px 0 0">Balance</th>
+      </tr>
+    </thead>
+    <tbody>`;
+
+  // Sort by balance
+  const sorted = trabs.sort((a,b) => {
+    const balA = (horasPorTrab[a.id]||0) + (favorPor[a.id]||0) - (deudaPor[a.id]||0);
+    const balB = (horasPorTrab[b.id]||0) + (favorPor[b.id]||0) - (deudaPor[b.id]||0);
+    return balB - balA;
+  });
+
+  sorted.forEach((t, i) => {
+    const horas = horasPorTrab[t.id] || 0;
+    const favor = favorPor[t.id] || 0;
+    const deuda = deudaPor[t.id] || 0;
+    const balance = horas + favor - deuda;
+    const bg = i % 2 === 0 ? '#F9F9F9' : '#FFFFFF';
+    const balColor = balance >= 0 ? '#085041' : '#C0392B';
+
+    html += `<tr style="background:${bg}">
+      <td style="padding:8px 6px;font-weight:500">${t.nick}</td>
+      <td style="padding:8px 4px;text-align:center;color:var(--teal-dark)">${horas.toFixed(2)}</td>
+      <td style="padding:8px 4px;text-align:center;color:#085041">${favor > 0 ? '+'+favor.toFixed(2) : '—'}</td>
+      <td style="padding:8px 4px;text-align:center;color:#C0392B">${deuda > 0 ? '-'+deuda.toFixed(2) : '—'}</td>
+      <td style="padding:8px 6px;text-align:center;font-weight:700;color:${balColor}">${balance >= 0 ? '+' : ''}${balance.toFixed(2)}</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function renderSM_old() {
   const hoy = new Date();
   const diasSem = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
   const fe = [0,6].includes(hoy.getDay());
