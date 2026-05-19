@@ -758,6 +758,29 @@ async function cargarTrabajadoras() {
 }
 
 // CUADRANTE
+// Festivos 2026 — Dénia (Valencia)
+const FESTIVOS_2026 = [
+  '2026-01-01', // Año Nuevo
+  '2026-01-06', // Epifanía
+  '2026-03-19', // San José
+  '2026-04-03', // Viernes Santo
+  '2026-04-06', // Lunes de Pascua
+  '2026-04-13', // San Vicente (local)
+  '2026-05-01', // Fiesta del Trabajo
+  '2026-06-24', // San Juan
+  '2026-07-08', // Santíssima Sang (local)
+  '2026-08-15', // Asunción de la Virgen
+  '2026-10-09', // Día de la Comunitat Valenciana
+  '2026-10-12', // Fiesta Nacional de España
+  '2026-12-08', // Inmaculada Concepción
+  '2026-12-25', // Navidad
+];
+
+function esFestivo(a, m, d) {
+  const fecha = `${a}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  return FESTIVOS_2026.includes(fecha);
+}
+
 function diasEnMes(m, a) { return new Date(a, m+1, 0).getDate(); }
 function diaSemana(a, m, d) { return new Date(a, m, d).getDay(); }
 function esFinde(a, m, d) { const ds = diaSemana(a,m,d); return ds===0||ds===6; }
@@ -823,7 +846,8 @@ async function renderCuadrante() {
   let html = `<div class="cuadrante-wrap"><table class="cuadrante-tabla"><thead><tr><th class="col-nombre">${headerLabel}</th>`;
   for (let d=1; d<=total; d++) {
     const ds = diaSemana(anioActual, mesActual, d);
-    html += `<th class="${esFinde(anioActual,mesActual,d)?'col-findes':''} ${esHoy(d)?'col-hoy':''}">${DIAS_SEMANA[ds]}<br>${d}</th>`;
+    const esFest = esFestivo(anioActual, mesActual, d);
+    html += `<th class="${esFinde(anioActual,mesActual,d)||esFest?'col-findes':''} ${esHoy(d)?'col-hoy':''}" ${esFest?'title="Festivo"':''}>${DIAS_SEMANA[ds]}<br>${d}${esFest?' 🔴':''}</th>`;
   }
   html += '</tr></thead><tbody>';
 
@@ -840,7 +864,8 @@ async function renderCuadrante() {
       const cod = celda ? celda.cod : '';
       const label = celda ? celda.turno : '';
       const cls = claseColor(cod);
-      html += `<td class="${esFinde(anioActual,mesActual,d)?'col-findes':''} ${esHoy(d)?'col-hoy':''}">`;
+      const esFest2 = esFestivo(anioActual, mesActual, d);
+      html += `<td class="${esFinde(anioActual,mesActual,d)||esFest2?'col-findes':''} ${esHoy(d)?'col-hoy':''}">`;
       const esPuestoCompartido = currentUser && currentUser.puesto_compartido;
       const esSA = cod === 'SA';
       const onclick = (esSA && esPuestoCompartido && esMia) ? ` onclick="reclamarDia('${nick}',${d})" title="Reclamar este día"` : '';
@@ -1827,14 +1852,15 @@ async function renderMiCuadrante() {
     const diaSem = (primerDia + d - 1) % 7;
     const esFinde = diaSem >= 5;
     const esHoy = esHoyFn(d);
+    const esFest3 = esFestivo(anioMio, mesMio, d);
     const celda = mapaD[d];
     const cod = celda ? celda.cod : '';
     const turnoLabel = celda ? celda.turno : '';
     const cls = getTurnoColor(cod);
     const horario = HORARIOS[turnoLabel] || '';
 
-    html += `<div class="cal-dia${esFinde?' finde':''}${esHoy?' hoy':''}">
-      <div class="cal-num" style="${esHoy?'color:var(--teal-dark);font-weight:700':''}">${d}</div>
+    html += `<div class="cal-dia${esFinde||esFest3?' finde':''}${esHoy?' hoy':''}">
+      <div class="cal-num" style="${esHoy?'color:var(--teal-dark);font-weight:700':esFest3?'color:#C0392B;font-weight:700':''}">${d}${esFest3?' 🔴':''}</div>
       ${cod ? `<div class="cal-turno ${cls}">${turnoLabel}</div>` : ''}
       ${horario ? `<div class="cal-horario">${horario}</div>` : ''}
     </div>`;
