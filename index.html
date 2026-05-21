@@ -2015,6 +2015,22 @@ async function editarCelda(nick, dia, codActual, labelActual) {
 
       <input type="hidden" id="celda-turno-sel" value="${turnoActivo}">
       <input type="hidden" id="celda-inc-sel" value="${incidenciaActiva}">
+      <input type="hidden" id="celda-doblaje-sel" value="">
+
+      <!-- DOBLAJE -->
+      <div style="margin-bottom:12px">
+        <div style="font-size:12px;font-weight:600;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+          <span>Doblaje (turno extra)</span>
+          <button onclick="toggleDoblajeModal()" id="btn-toggle-doblaje" style="font-size:11px;border:1px solid var(--border);background:var(--white);border-radius:var(--radius-sm);padding:3px 8px;cursor:pointer">+ Añadir doblaje</button>
+        </div>
+        <div id="doblaje-modal-grid" style="display:none;grid-template-columns:repeat(4,1fr);gap:6px">
+          ${turnos.map(t => `<button onclick="seleccionarDoblajeModal('${t}')"
+            id="btn-doblaje-${t.replace(/-/g,'_')}"
+            style="padding:6px 2px;border:1px solid var(--border);background:var(--white);
+            color:var(--text);border-radius:var(--radius-sm);font-size:11px;font-weight:500;cursor:pointer">${t}</button>`).join('')}
+        </div>
+      </div>
+
       <button class="btn-primary" onclick="guardarCelda('${trab.id}','${fecha}')">Guardar</button>
     </div>`;
 
@@ -2080,6 +2096,44 @@ function seleccionarIncidenciaModal(inc) {
   }
 }
 
+function toggleDoblajeModal() {
+  const grid = document.getElementById('doblaje-modal-grid');
+  const btn = document.getElementById('btn-toggle-doblaje');
+  if (grid.style.display === 'none') {
+    grid.style.display = 'grid';
+    btn.textContent = '✕ Quitar doblaje';
+    btn.style.color = 'var(--red)';
+  } else {
+    grid.style.display = 'none';
+    btn.textContent = '+ Añadir doblaje';
+    btn.style.color = '';
+    document.getElementById('celda-doblaje-sel').value = '';
+    document.querySelectorAll('[id^="btn-doblaje-"]').forEach(b => {
+      b.style.border = '1px solid var(--border)';
+      b.style.background = 'var(--white)';
+      b.style.color = 'var(--text)';
+    });
+  }
+}
+
+function seleccionarDoblajeModal(turno) {
+  const safeId = turno.replace(/-/g,'_');
+  const actual = document.getElementById('celda-doblaje-sel').value;
+  document.querySelectorAll('[id^="btn-doblaje-"]').forEach(b => {
+    b.style.border = '1px solid var(--border)';
+    b.style.background = 'var(--white)';
+    b.style.color = 'var(--text)';
+  });
+  if (actual === turno) {
+    document.getElementById('celda-doblaje-sel').value = '';
+  } else {
+    document.getElementById(`btn-doblaje-${safeId}`).style.border = '1px solid #E65100';
+    document.getElementById(`btn-doblaje-${safeId}`).style.background = '#FFF0E0';
+    document.getElementById(`btn-doblaje-${safeId}`).style.color = '#8B2500';
+    document.getElementById('celda-doblaje-sel').value = turno;
+  }
+}
+
 function cerrarModalCelda() {
   const m = document.getElementById('modal-celda');
   if (m) m.remove();
@@ -2090,31 +2144,48 @@ async function guardarCelda(trabajadoraId, fecha) {
   const incidencia = document.getElementById('celda-inc-sel').value || null;
   const horaIni = document.getElementById('celda-hora-ini').value || null;
   const horaFin = document.getElementById('celda-hora-fin').value || null;
+  const doblaje = document.getElementById('celda-doblaje-sel')?.value || null;
 
-  // Buscar si ya existe la celda
-  const { data: existente } = await sb.from('cuadrante')
-    .select('id')
+  // Buscar celda principal (no doblaje)
+  const { data: existentes } = await sb.from('cuadrante')
+    .select('id, es_doblaje')
     .eq('trabajadora_id', trabajadoraId)
-    .eq('fecha', fecha)
-    .single();
+    .eq('fecha', fecha);
 
-  if (existente) {
+  const principal = existentes?.find(r => !r.es_doblaje);
+  const doblajeExistente = existentes?.find(r => r.es_doblaje);
+
+  // Actualizar o insertar celda principal
+  if (principal) {
     await sb.from('cuadrante').update({
       codigo_turno: turno,
       incidencia: incidencia,
       hora_inicio_real: horaIni,
       hora_fin_real: horaFin
-    }).eq('id', existente.id);
+    }).eq('id', principal.id);
   } else {
     await sb.from('cuadrante').insert({
-      trabajadora_id: trabajadoraId,
-      fecha,
-      codigo_turno: turno,
-      incidencia: incidencia,
-      hora_inicio_real: horaIni,
-      hora_fin_real: horaFin,
-      es_servicio_min: false
+      trabajadora_id: trabajadoraId, fecha,
+      codigo_turno: turno, incidencia: incidencia,
+      hora_inicio_real: horaIni, hora_fin_real: horaFin,
+      es_servicio_min: false, es_doblaje: false
     });
+  }
+
+  // Gestionar doblaje
+  if (doblaje) {
+    if (doblajeExistente) {
+      await sb.from('cuadrante').update({ codigo_turno: doblaje }).eq('id', doblajeExistente.id);
+    } else {
+      await sb.from('cuadrante').insert({
+        trabajadora_id: trabajadoraId, fecha,
+        codigo_turno: doblaje, incidencia: null,
+        es_servicio_min: false, es_doblaje: true
+      });
+    }
+  } else if (doblajeExistente) {
+    // Si se quitó el doblaje, borrar la fila
+    await sb.from('cuadrante').delete().eq('id', doblajeExistente.id);
   }
 
   cerrarModalCelda();
