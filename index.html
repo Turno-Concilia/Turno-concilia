@@ -426,6 +426,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
             <div style="font-size:11px;margin-top:4px;font-weight:500">Parcial por horas</div>
             <div style="font-size:10px;color:var(--text-muted);margin-top:2px">Mín. 1 hora</div>
           </button>
+          <button class="tipo-cambio-btn" onclick="selTipoCambio('doblaje',this)">
+            <div style="font-size:18px">⚡</div>
+            <div style="font-size:11px;margin-top:4px;font-weight:500">Con doblaje</div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:2px">Hago su turno + el mío</div>
+          </button>
         </div>
 
         <!-- CAMPOS COMUNES -->
@@ -1147,7 +1152,8 @@ async function renderSolicitudes() {
       const tipoCambioLabel = {
         completo: '↔ Cambio completo',
         devolucion: '⏳ Devolución posterior',
-        parcial: '⏱ Parcial por horas'
+        parcial: '⏱ Parcial por horas',
+        doblaje: '⚡ Con doblaje'
       }[s.tipo_cambio] || s.tipo;
 
       const turnoSol = s.turno_solicitante ? ` (${s.turno_solicitante})` : '';
@@ -1190,7 +1196,8 @@ async function renderSolicitudes() {
     const tipoCambioLabel = {
       completo: '↔ Cambio completo',
       devolucion: '⏳ Devolución posterior',
-      parcial: '⏱ Parcial'
+      parcial: '⏱ Parcial',
+      doblaje: '⚡ Con doblaje'
     }[s.tipo_cambio] || s.tipo;
     const estadoClass = {
       pendiente: 'badge-pendiente',
@@ -1236,6 +1243,8 @@ async function aceptarCambio(solicitudId) {
     await aplicarCambioDevolucion(sol);
   } else if (sol.tipo_cambio === 'parcial') {
     await aplicarCambioParcial(sol);
+  } else if (sol.tipo_cambio === 'doblaje') {
+    await aplicarCambioDoblaje(sol);
   }
 
   alert('✓ Cambio aceptado y aplicado en el cuadrante.');
@@ -1307,6 +1316,70 @@ async function aplicarCambioDevolucion(sol) {
       estado: 'pendiente'
     });
   }
+}
+
+async function aplicarCambioDoblaje(sol) {
+  // Obtener turno de la compañera (el que yo voy a hacer)
+  const { data: celdaB } = await sb.from('cuadrante')
+    .select('id, codigo_turno, incidencia')
+    .eq('trabajadora_id', sol.contraparte_id)
+    .eq('fecha', sol.fecha_desde_b || sol.fecha_desde)
+    .single();
+
+  // Obtener mi turno ese día
+  const { data: celdaA } = await sb.from('cuadrante')
+    .select('id, codigo_turno, incidencia')
+    .eq('trabajadora_id', sol.solicitante_id)
+    .eq('fecha', sol.fecha_desde)
+    .single();
+
+  if (!celdaA || !celdaB) { alert('Error: no se encontraron los turnos.'); return; }
+
+  const miTurno = celdaA.codigo_turno || celdaA.incidencia;
+  const suTurno = celdaB.codigo_turno || celdaB.incidencia;
+
+  // Calcular el código de doblaje
+  const doblajeCod = calcularDoblaje(suTurno, miTurno);
+
+  // Mi celda pasa a doblaje
+  await sb.from('cuadrante').update({
+    codigo_turno: doblajeCod,
+    incidencia: null,
+    modificado_por: currentUser.id,
+    modificado_en: new Date().toISOString()
+  }).eq('id', celdaA.id);
+
+  // La celda de la compañera pasa a L
+  await sb.from('cuadrante').update({
+    codigo_turno: null,
+    incidencia: 'L',
+    modificado_por: currentUser.id,
+    modificado_en: new Date().toISOString()
+  }).eq('id', celdaB.id);
+
+  // Registrar deuda solo si NO hay devolución prevista
+  if (!sol.con_devolucion) {
+    const horasDeuda = HORAS_TURNO[suTurno] || 7.25;
+    await sb.from('bolsa_deudas').insert({
+      acreedora_id: sol.solicitante_id,
+      deudora_id: sol.contraparte_id,
+      horas: horasDeuda,
+      fecha_origen: sol.fecha_desde,
+      solicitud_id: sol.id,
+      estado: 'pendiente'
+    });
+  }
+}
+
+function calcularDoblaje(turno1, turno2) {
+  const esM = (t) => t && (t.startsWith('M') || t.startsWith('CD'));
+  const esT = (t) => t && (t.startsWith('T') || t.startsWith('TC') || t.startsWith('CT'));
+  const esN = (t) => t && (t === 'N' || t === 'N1');
+
+  if ((esM(turno1) && esT(turno2)) || (esT(turno1) && esM(turno2))) return 'M/T';
+  if ((esM(turno1) && esN(turno2)) || (esN(turno1) && esM(turno2))) return 'M/N';
+  if ((esT(turno1) && esN(turno2)) || (esN(turno1) && esT(turno2))) return 'T/N';
+  return turno1; // fallback
 }
 
 async function aplicarCambioParcial(sol) {
@@ -1411,17 +1484,31 @@ function selTipoCambio(tipo, btn) {
     if (sublabelB) sublabelB.textContent = 'El día mío que ella va a cubrir';
   }
   const esParcial = tipo === 'parcial';
+  const esDoblaje = tipo === 'doblaje';
   document.getElementById('campos-parcial').style.display = esParcial ? 'block' : 'none';
   document.getElementById('campos-parcial-b').style.display = esParcial ? 'block' : 'none';
   if (!esParcial) document.getElementById('horas-calculo').style.display = 'none';
+  // En doblaje: mismo día, solo mostrar bloque "Yo le hago" — campos-b se oculta
+  document.getElementById('campos-b').style.display = (tipo === 'completo' || esParcial) ? 'grid' : 'none';
+  // Aviso especial para doblaje
+  const aviso = document.getElementById('sol-aviso-aprobacion');
+  if (esDoblaje) {
+    aviso.style.display = 'block';
+    aviso.innerHTML = '⚡ Harás su turno además del tuyo ese mismo día. Tu celda pasará a T/N, M/T o M/N.<br><br>' +
+      '<label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer">' +
+      '<input type="checkbox" id="doblaje-con-devolucion" style="width:16px;height:16px"> ' +
+      'Ella me devolverá este turno otro día (sin deuda)</label>';
+  } else {
+    aviso.style.display = (tipo === 'devolucion' || tipo === 'parcial') ? 'block' : 'none';
+    aviso.textContent = '⚠️ Este tipo de cambio requiere aprobación de la coordinadora.';
+  }
   const labelFijo = document.getElementById('label-campos-b');
   const sublabelFijo = document.getElementById('sublabel-campos-b');
   if (labelFijo) labelFijo.textContent = tipo === 'parcial' ? 'Ella me hace...' : 'Ella me devuelve...';
   if (sublabelFijo) sublabelFijo.textContent = tipo === 'parcial' ? 'El día mío que ella va a cubrir parcialmente' : 'El día mío que ella va a cubrir';
 
   // Aviso de aprobación
-  const aviso = document.getElementById('sol-aviso-aprobacion');
-  aviso.style.display = (tipo === 'devolucion' || tipo === 'parcial') ? 'block' : 'none';
+  // aviso ya declarado arriba
 }
 
 // Horarios por tipo de turno
@@ -1601,7 +1688,9 @@ async function enviarSolicitud() {
     motivo: motivo || null,
     estado: 'pendiente',
     turno_solicitante: document.getElementById('sol-turno-a').value || null,
-    turno_contraparte: document.getElementById('sol-turno-b').value || null
+    turno_contraparte: document.getElementById('sol-turno-b').value || null,
+    con_devolucion: tipoCambioActual === 'doblaje' ? 
+      (document.getElementById('doblaje-con-devolucion')?.checked || false) : false
   };
 
   if (tipoCambioActual === 'completo') {
@@ -1647,6 +1736,8 @@ async function enviarSolicitud() {
 
   const msg = tipoCambioActual === 'completo'
     ? 'Solicitud enviada. Tu compañera recibirá la notificación.'
+    : tipoCambioActual === 'doblaje'
+    ? 'Solicitud de doblaje enviada. Tu compañera deberá aceptarla.'
     : 'Solicitud enviada. Pendiente de aprobación de la coordinadora.';
   alert('✓ ' + msg);
   renderSolicitudes();
