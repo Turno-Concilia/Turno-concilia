@@ -538,6 +538,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="card-title"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Bolsa de horas extra</div>
       <div id="he-lista"><div class="empty-state">Sin horas extra pendientes</div></div>
     </div>
+    <div class="card">
+      <div class="card-title">
+        <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Cambiar contraseña
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nueva contraseña</label>
+        <input type="password" class="form-input" id="nueva-pass-perfil" placeholder="Mínimo 8 caracteres">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Repite la contraseña</label>
+        <input type="password" class="form-input" id="nueva-pass-perfil2" placeholder="Repite la contraseña">
+      </div>
+      <div id="cambio-pass-perfil-error" style="display:none;color:#A32D2D;font-size:12px;margin-bottom:8px"></div>
+      <button class="btn-primary" onclick="cambiarPasswordPerfil()">Guardar nueva contraseña</button>
+    </div>
   </div>
 
   <!-- MI CUADRANTE PAGE -->
@@ -688,7 +704,7 @@ async function doLogin() {
 
 // LOGIN DEMO (sin Supabase Auth, carga directamente de la tabla)
 async function loginDemo(tipo) {
-  const emails = { superadmin:'andreapastorzorita@hotmail.com', coordinadora:'inof1223@hotmail.com', auxiliar:'isoler@ayto-denia.es', auxiliar2:'ana.garcia@santallucia.es', enfermera:'apastor@ayto-denia.es' };
+  const emails = { superadmin:'andreapastorzorita@hotmail.com', coordinadora:'inof1223@hotmail.com', auxiliar:'inma.soler@santallucia.es', auxiliar2:'ana.garcia@santallucia.es', enfermera:'anap@santallucia.es' };
   const { data } = await sb.from('trabajadoras').select('*').eq('email', emails[tipo]).single();
   if (data) {
     currentUser = data;
@@ -1679,6 +1695,32 @@ async function cargarDeudas() {
 }
 
 // PERFIL
+async function cambiarPasswordPerfil() {
+  const pass1 = document.getElementById('nueva-pass-perfil').value;
+  const pass2 = document.getElementById('nueva-pass-perfil2').value;
+  const err = document.getElementById('cambio-pass-perfil-error');
+  err.style.display = 'none';
+
+  if (pass1.length < 8) {
+    err.textContent = 'La contraseña debe tener al menos 8 caracteres.';
+    err.style.display = 'block'; return;
+  }
+  if (pass1 !== pass2) {
+    err.textContent = 'Las contraseñas no coinciden.';
+    err.style.display = 'block'; return;
+  }
+
+  const { error } = await sb.auth.updateUser({ password: pass1 });
+  if (error) {
+    err.textContent = 'Error al cambiar la contraseña. Inténtalo de nuevo.';
+    err.style.display = 'block'; return;
+  }
+
+  document.getElementById('nueva-pass-perfil').value = '';
+  document.getElementById('nueva-pass-perfil2').value = '';
+  alert('✓ Contraseña cambiada correctamente.');
+}
+
 async function cargarPerfil() {
   if (!currentUser) return;
   const ini = currentUser.nick.split(' ').map(w=>w[0]).join('').slice(0,2);
@@ -2530,4 +2572,3 @@ async function guardarNuevaPassword() {
 </script>
 </body>
 </html>
-
