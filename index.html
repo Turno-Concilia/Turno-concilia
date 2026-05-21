@@ -862,7 +862,9 @@ async function renderCuadrante() {
     const { data: chunkData } = await sb.from('cuadrante')
       .select('trabajadora_id, fecha, codigo_turno, incidencia, turno_original, es_doblaje, trabajadoras!cuadrante_trabajadora_id_fkey(nick,categoria)')
       .gte('fecha', fechaIni).lte('fecha', fechaFin)
-      .in('trabajadora_id', chunk);
+      .in('trabajadora_id', chunk)
+      .order('es_doblaje', { ascending: true })
+      .limit(2000);
     if (chunkData) dbData = dbData.concat(chunkData);
   }
 
