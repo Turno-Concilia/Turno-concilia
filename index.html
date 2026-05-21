@@ -229,6 +229,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <input class="form-input" type="password" id="login-pass" placeholder="••••••••">
   </div>
   <button class="btn-primary" onclick="doLogin()">Entrar</button>
+  <button onclick="olvidarPassword()" style="background:none;border:none;color:var(--blue);font-size:12px;cursor:pointer;margin-top:8px;text-decoration:underline">¿Olvidaste tu contraseña?</button>
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('login-pass').addEventListener('keydown', e => {
@@ -237,17 +238,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     });
   </script>
   <div id="login-error" class="login-error" style="display:none"></div>
-  <div class="login-demo">
-    <div style="margin-bottom:6px;font-size:11px;color:var(--text-muted)">— Acceso demo (solo para pruebas) —</div>
-    <div style="display:flex;gap:6px;max-width:360px;width:100%">
-      <button class="demo-btn" style="flex:1;justify-content:center" onclick="loginDemo('auxiliar')">
-        <span class="demo-badge" style="background:#FAEEDA;color:#633806">👩‍⚕️ Auxiliar demo</span>
-      </button>
-      <button class="demo-btn" style="flex:1;justify-content:center" onclick="loginDemo('enfermera')">
-        <span class="demo-badge" style="background:#E6F1FB;color:#185FA5">👩‍⚕️ Enfermera demo</span>
-      </button>
-    </div>
-  </div>
+  
 </div>
 
 <!-- CAMBIO DE CONTRASEÑA (primera vez) -->
@@ -683,6 +674,22 @@ function claseColor(cod) {
 }
 
 // LOGIN
+async function olvidarPassword() {
+  const email = document.getElementById('login-email').value.trim();
+  if (!email) {
+    alert('Introduce tu email primero y luego pulsa "¿Olvidaste tu contraseña?"');
+    return;
+  }
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: 'https://turno-concilia.github.io/Turno-concilia/'
+  });
+  if (error) {
+    alert('Error al enviar el email. Verifica que el email es correcto.');
+  } else {
+    alert('✓ Te hemos enviado un email para restablecer tu contraseña. Revisa tu bandeja de entrada.');
+  }
+}
+
 async function doLogin() {
   const email = document.getElementById('login-email').value.trim();
   const pass = document.getElementById('login-pass').value;
