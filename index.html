@@ -1383,10 +1383,12 @@ async function aplicarCambioDoblaje(sol) {
       .single();
 
     if (miCeldaDev && suCeldaDev) {
-      // Intercambiar: ella hace mi turno, yo hago el suyo
-      await sb.from('cuadrante').update({ codigo_turno: suCeldaDev.codigo_turno, incidencia: null })
+      // Devolución: intercambio de turnos — ella hace el mío, yo hago el suyo
+      const miTurnoDev = miCeldaDev.codigo_turno;
+      const suTurnoDev = suCeldaDev.codigo_turno;
+      await sb.from('cuadrante').update({ codigo_turno: suTurnoDev, incidencia: null })
         .eq('id', miCeldaDev.id);
-      await sb.from('cuadrante').update({ codigo_turno: miCeldaDev.codigo_turno, incidencia: null })
+      await sb.from('cuadrante').update({ codigo_turno: miTurnoDev, incidencia: null })
         .eq('id', suCeldaDev.id);
     }
   } else {
