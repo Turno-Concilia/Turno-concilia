@@ -878,18 +878,29 @@ async function renderCuadrante() {
       const dia = parseInt(r.fecha.split('-')[2]);
       if (r.incidencia === 'SA') {
         const turnoReal = r.codigo_turno || r.turno_original || '?';
-        filas[nick][dia] = { cod: 'SA', turno: turnoReal };
+        if (!r.es_doblaje) filas[nick][dia] = { cod: 'SA', turno: turnoReal };
       } else {
         const cod = r.incidencia || r.codigo_turno || '';
-        if (cod) {
-          if (r.es_doblaje) {
-            // Añadir como turno extra al día existente
-            if (!filas[nick][dia]) filas[nick][dia] = { cod, turno: cod };
-            else filas[nick][dia].doblaje = { cod, turno: cod };
-          } else {
-            filas[nick][dia] = { cod, turno: cod };
-          }
+        if (cod && !r.es_doblaje) {
+          // Primero registrar solo los turnos principales
+          filas[nick][dia] = { cod, turno: cod };
         }
+      }
+    });
+
+    // Segunda pasada: añadir doblajes sobre los turnos principales ya registrados
+    dbData.forEach(r => {
+      if (!r.es_doblaje) return;
+      const tData = r.trabajadoras;
+      const nick = tData ? tData.nick : '';
+      if (!nick) return;
+      const trabInfo = trabajadoras.find(t => t.nick === nick);
+      if (trabInfo && trabInfo.categoria !== categoriaActual) return;
+      const dia = parseInt(r.fecha.split('-')[2]);
+      const cod = r.codigo_turno || '';
+      if (cod) {
+        if (!filas[nick][dia]) filas[nick][dia] = { cod, turno: cod };
+        else filas[nick][dia].doblaje = { cod, turno: cod };
       }
     });
   }
