@@ -1589,9 +1589,6 @@ async function enviarSolicitud() {
   if (!fechaA) { alert('Selecciona tu fecha.'); return; }
   if (!turnoA) { alert('No tienes turno ese día.'); return; }
 
-  const turnoA = document.getElementById('sol-turno-a').value;
-  const turnoB = document.getElementById('sol-turno-b').value;
-
   let solicitud = {
     solicitante_id: currentUser.id,
     contraparte_id: contraparte,
@@ -1601,8 +1598,8 @@ async function enviarSolicitud() {
     fecha_hasta: fechaA,
     motivo: motivo || null,
     estado: 'pendiente',
-    turno_solicitante: turnoA || null,
-    turno_contraparte: turnoB || null
+    turno_solicitante: document.getElementById('sol-turno-a').value || null,
+    turno_contraparte: document.getElementById('sol-turno-b').value || null
   };
 
   if (tipoCambioActual === 'completo') {
