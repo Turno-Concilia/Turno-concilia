@@ -1116,7 +1116,7 @@ function renderSM_old() {
 // SOLICITUDES
 async function renderSolicitudes() {
   const { data } = await sb.from('solicitudes')
-    .select('*, solicitante:solicitante_id(nick,id), contraparte:contraparte_id(nick,id)')
+    .select('*, solicitante:solicitante_id(nick,id), contraparte:contraparte_id(nick,id), turno_solicitante, turno_contraparte')
     .order('created_at', { ascending: false });
 
   const esCoord = currentUser && ['coordinadora','coordinadora_enfermera','superadmin'].includes(currentUser.rol);
@@ -1148,11 +1148,13 @@ async function renderSolicitudes() {
         parcial: '⏱ Parcial por horas'
       }[s.tipo_cambio] || s.tipo;
 
+      const turnoSol = s.turno_solicitante ? ` (${s.turno_solicitante})` : '';
+      const turnoContra = s.turno_contraparte ? ` (${s.turno_contraparte})` : '';
       const detalle = s.tipo_cambio === 'completo'
-        ? `Yo le hago el ${s.fecha_desde_b || '?'} · Ella me devuelve el ${s.fecha_desde}`
+        ? `Yo le hago el ${s.fecha_desde_b || '?'}${turnoContra} · Ella me devuelve el ${s.fecha_desde}${turnoSol}`
         : s.tipo_cambio === 'parcial'
-        ? `Día ${s.fecha_desde} · ${s.horas_cambio}h`
-        : `Cubre el ${s.fecha_desde_b || s.fecha_desde}`;
+        ? `Día ${s.fecha_desde}${turnoContra} · ${s.horas_cambio}h`
+        : `Cubre el ${s.fecha_desde_b || s.fecha_desde}${turnoContra}`;
 
       const esMiSolicitud = s.contraparte_id === currentUser.id;
 
@@ -1206,7 +1208,7 @@ async function renderSolicitudes() {
     miHtml += `<div class="solicitud-item">
       <div class="sol-info">
         <div class="sol-nombre">${tipoCambioLabel} · <span style="font-weight:400;color:var(--text-muted)">${s.contraparte?.nick||'—'}</span></div>
-        <div class="sol-detalle">Yo hago el ${s.fecha_desde_b||s.fecha_desde} · Ella hace el ${s.fecha_desde}</div>
+        <div class="sol-detalle">Yo hago el ${s.fecha_desde_b||s.fecha_desde}${s.turno_contraparte?' ('+s.turno_contraparte+')':''} · Ella hace el ${s.fecha_desde}${s.turno_solicitante?' ('+s.turno_solicitante+')':''}</div>
       </div>
       <span class="badge-estado ${estadoClass}" style="white-space:nowrap;font-size:10px">${estadoLabel}</span>
     </div>`;
@@ -1587,6 +1589,9 @@ async function enviarSolicitud() {
   if (!fechaA) { alert('Selecciona tu fecha.'); return; }
   if (!turnoA) { alert('No tienes turno ese día.'); return; }
 
+  const turnoA = document.getElementById('sol-turno-a').value;
+  const turnoB = document.getElementById('sol-turno-b').value;
+
   let solicitud = {
     solicitante_id: currentUser.id,
     contraparte_id: contraparte,
@@ -1595,7 +1600,9 @@ async function enviarSolicitud() {
     fecha_desde: fechaA,
     fecha_hasta: fechaA,
     motivo: motivo || null,
-    estado: 'pendiente'
+    estado: 'pendiente',
+    turno_solicitante: turnoA || null,
+    turno_contraparte: turnoB || null
   };
 
   if (tipoCambioActual === 'completo') {
