@@ -105,7 +105,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .t-IT{background:var(--red-light);color:var(--red)}
 .t-VAC{background:var(--green-light);color:var(--green)}
 .t-SA{background:#FAEEDA;color:#854F0B;border:1px dashed #BA7517;cursor:pointer}
-.t-doble{background:#FFF0E0;color:#8B2500;border:2px solid #E65100;font-weight:700}
+.t-doblaje{background:#FFF0E0;color:#8B2500;border:2px solid #E65100;font-weight:600;font-size:10px}
 .col-findes{background:#FFF0F0!important}
 .cuadrante-tabla thead th.col-findes{background:#FFD6D6!important;color:#C0392B!important}
 .col-hoy{background:#FFF3CD!important;border-top:3px solid #F0A500!important}
@@ -667,7 +667,7 @@ let cuadranteCache = {};
 function claseColor(cod) {
   if (cod === 'SA') return 't-SA';
   if (!cod) return 't-L';
-  if (cod === 'M/T' || cod === 'M/N' || cod === 'T/N') return 't-doble';
+
   if (cod === 'M-HE') return 't-M';
   if (cod === 'T-HE') return 't-T';
   if (cod === 'N-HE') return 't-N';
@@ -860,7 +860,7 @@ async function renderCuadrante() {
   for (let i = 0; i < idsCategoria.length; i += 20) {
     const chunk = idsCategoria.slice(i, i + 20);
     const { data: chunkData } = await sb.from('cuadrante')
-      .select('trabajadora_id, fecha, codigo_turno, incidencia, turno_original, trabajadoras!cuadrante_trabajadora_id_fkey(nick,categoria)')
+      .select('trabajadora_id, fecha, codigo_turno, incidencia, turno_original, es_doblaje, trabajadoras!cuadrante_trabajadora_id_fkey(nick,categoria)')
       .gte('fecha', fechaIni).lte('fecha', fechaFin)
       .in('trabajadora_id', chunk);
     if (chunkData) dbData = dbData.concat(chunkData);
@@ -881,7 +881,15 @@ async function renderCuadrante() {
         filas[nick][dia] = { cod: 'SA', turno: turnoReal };
       } else {
         const cod = r.incidencia || r.codigo_turno || '';
-        if (cod) filas[nick][dia] = { cod, turno: cod };
+        if (cod) {
+          if (r.es_doblaje) {
+            // Añadir como turno extra al día existente
+            if (!filas[nick][dia]) filas[nick][dia] = { cod, turno: cod };
+            else filas[nick][dia].doblaje = { cod, turno: cod };
+          } else {
+            filas[nick][dia] = { cod, turno: cod };
+          }
+        }
       }
     });
   }
@@ -1341,13 +1349,15 @@ async function aplicarCambioDoblaje(sol) {
   // Calcular el código de doblaje
   const doblajeCod = calcularDoblaje(suTurno, miTurno);
 
-  // Mi celda pasa a doblaje
-  await sb.from('cuadrante').update({
-    codigo_turno: doblajeCod,
+  // Insertar turno de doblaje como fila extra (es_doblaje=true)
+  await sb.from('cuadrante').insert({
+    trabajadora_id: sol.solicitante_id,
+    fecha: sol.fecha_desde,
+    codigo_turno: suTurno,
     incidencia: null,
-    modificado_por: currentUser.id,
-    modificado_en: new Date().toISOString()
-  }).eq('id', celdaA.id);
+    es_doblaje: true,
+    es_servicio_min: false
+  });
 
   // La celda de la compañera pasa a L
   await sb.from('cuadrante').update({
@@ -1357,8 +1367,30 @@ async function aplicarCambioDoblaje(sol) {
     modificado_en: new Date().toISOString()
   }).eq('id', celdaB.id);
 
-  // Registrar deuda solo si NO hay devolución prevista
-  if (!sol.con_devolucion) {
+  if (sol.con_devolucion && sol.fecha_devolucion) {
+    // Día pactado — aplicar el cambio de devolución directamente en el cuadrante
+    // La contraparte cubre mi turno ese día
+    const { data: miCeldaDev } = await sb.from('cuadrante')
+      .select('id, codigo_turno')
+      .eq('trabajadora_id', sol.solicitante_id)
+      .eq('fecha', sol.fecha_devolucion)
+      .single();
+    
+    const { data: suCeldaDev } = await sb.from('cuadrante')
+      .select('id, codigo_turno')
+      .eq('trabajadora_id', sol.contraparte_id)
+      .eq('fecha', sol.fecha_devolucion)
+      .single();
+
+    if (miCeldaDev && suCeldaDev) {
+      // Intercambiar: ella hace mi turno, yo hago el suyo
+      await sb.from('cuadrante').update({ codigo_turno: suCeldaDev.codigo_turno, incidencia: null })
+        .eq('id', miCeldaDev.id);
+      await sb.from('cuadrante').update({ codigo_turno: miCeldaDev.codigo_turno, incidencia: null })
+        .eq('id', suCeldaDev.id);
+    }
+  } else {
+    // Sin día pactado — registrar en bolsa de deudas
     const horasDeuda = HORAS_TURNO[suTurno] || 7.25;
     await sb.from('bolsa_deudas').insert({
       acreedora_id: sol.solicitante_id,
@@ -1367,6 +1399,22 @@ async function aplicarCambioDoblaje(sol) {
       fecha_origen: sol.fecha_desde,
       solicitud_id: sol.id,
       estado: 'pendiente'
+    });
+  }
+}
+
+function toggleDoblajeDevolucion() {
+  const checked = document.getElementById('doblaje-con-devolucion').checked;
+  document.getElementById('doblaje-devolucion-campos').style.display = checked ? 'block' : 'none';
+  document.getElementById('doblaje-sin-pactar').style.display = checked ? 'none' : 'block';
+
+  // Cuando cambia la fecha de devolución, cargar el turno de la contraparte
+  if (checked) {
+    document.getElementById('doblaje-fecha-dev').addEventListener('change', async e => {
+      const contraparteId = document.getElementById('sol-contraparte').value;
+      if (contraparteId && e.target.value) {
+        await cargarTurnosDia(e.target.value, 'doblaje-turno-dev', contraparteId);
+      }
     });
   }
 }
@@ -1494,10 +1542,28 @@ function selTipoCambio(tipo, btn) {
   const aviso = document.getElementById('sol-aviso-aprobacion');
   if (esDoblaje) {
     aviso.style.display = 'block';
-    aviso.innerHTML = '⚡ Harás su turno además del tuyo ese mismo día. Tu celda pasará a T/N, M/T o M/N.<br><br>' +
-      '<label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer">' +
-      '<input type="checkbox" id="doblaje-con-devolucion" style="width:16px;height:16px"> ' +
-      'Ella me devolverá este turno otro día (sin deuda)</label>';
+    aviso.innerHTML = `⚡ Harás su turno además del tuyo ese mismo día. Tu celda pasará a T/N, M/T o M/N.<br><br>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;margin-bottom:8px">
+        <input type="checkbox" id="doblaje-con-devolucion" style="width:16px;height:16px" onchange="toggleDoblajeDevolucion()">
+        ¿Ya tenéis pactado el día de devolución?
+      </label>
+      <div id="doblaje-devolucion-campos" style="display:none;margin-left:24px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Día que ella me devuelve</label>
+            <input type="date" class="form-input" id="doblaje-fecha-dev">
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Turno que me hace</label>
+            <select class="form-input" id="doblaje-turno-dev">
+              <option value="">Selecciona fecha primero</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div id="doblaje-sin-pactar" style="font-size:11px;color:#854F0B;margin-top:4px">
+        Sin día pactado → quedará en bolsa de deudas pendiente.
+      </div>`;
   } else {
     aviso.style.display = (tipo === 'devolucion' || tipo === 'parcial') ? 'block' : 'none';
     aviso.textContent = '⚠️ Este tipo de cambio requiere aprobación de la coordinadora.';
@@ -1690,7 +1756,9 @@ async function enviarSolicitud() {
     turno_solicitante: document.getElementById('sol-turno-a').value || null,
     turno_contraparte: document.getElementById('sol-turno-b').value || null,
     con_devolucion: tipoCambioActual === 'doblaje' ? 
-      (document.getElementById('doblaje-con-devolucion')?.checked || false) : false
+      (document.getElementById('doblaje-con-devolucion')?.checked || false) : false,
+    fecha_devolucion: tipoCambioActual === 'doblaje' && document.getElementById('doblaje-con-devolucion')?.checked ?
+      (document.getElementById('doblaje-fecha-dev')?.value || null) : null
   };
 
   if (tipoCambioActual === 'completo') {
@@ -1894,8 +1962,8 @@ async function editarCelda(nick, dia, codActual, labelActual) {
   modal.id = 'modal-celda';
 
   // Turnos disponibles según categoría
-  const turnosAux = ['M1','M2','M3','M4','M5','M6','M7','M8','M9','M10','M11','M12','CD1','CD2','CD3','T1','T2','T3','T4','T5','T6','TC1','TC2','TC3','N1','M-HE','T-HE','N-HE','M/T','M/N','T/N'];
-  const turnosEnf = ['M','M1','M2','M3','T','N','M-HE','T-HE','N-HE','M/T','M/N','T/N'];
+  const turnosAux = ['M1','M2','M3','M4','M5','M6','M7','M8','M9','M10','M11','M12','CD1','CD2','CD3','T1','T2','T3','T4','T5','T6','TC1','TC2','TC3','N1','M-HE','T-HE','N-HE'];
+  const turnosEnf = ['M','M1','M2','M3','T','N','M-HE','T-HE','N-HE'];
   const turnos = trab.categoria === 'enfermera' ? turnosEnf : turnosAux;
   const incidencias = ['L','F','AP','P','IT','VAC','HE','DH'];
 
@@ -2106,7 +2174,7 @@ const HORARIOS = {
   T4:'14:45-22:00', T5:'14:45-22:00', T6:'14:45-22:00',
   TC:'14:45-22:00', TC1:'14:45-22:00', TC2:'14:45-22:00', TC3:'14:45-22:00',
   N:'21:45-08:00', N1:'21:45-08:00',
-  'M/T':'07:45-22:00', 'M/N':'07:45+21:45-08:00', 'T/N':'14:45-08:00'
+
 };
 
 function getTurnoColor(cod) {
@@ -2237,8 +2305,7 @@ const HORAS_TURNO = {
   'TC':7.25,'TC1':7.25,'TC2':7.25,'TC3':7.25,'CT1':7.25,'CT2':7.25,'CT3':7.25,
   // Noches
   'N':10.25,'N1':10.25,
-  // Dobles turnos
-  'M/T':14.50,'M/N':17.50,'T/N':17.50,
+
   // Incidencias computables
   'P':7.25,'IT':4.15,'DH':7.25,
   // HE y M-HE, T-HE, N-HE = 0 (se abonan)
@@ -2251,6 +2318,8 @@ function getHorasCodigo(cod) {
   if (!cod) return 0;
   return HORAS_TURNO[cod] ?? 0;
 }
+
+// El sumatorio ya suma todos los registros incluidos los de doblaje
 
 async function calcularHorasPeriodo() {
   if (!currentUser) return;
