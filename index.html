@@ -1274,40 +1274,50 @@ async function aceptarCambio(solicitudId) {
 }
 
 async function aplicarCambioCompleto(sol) {
-  // Obtener datos del cuadrante de A (solicitante) en su fecha
-  const { data: celdaA } = await sb.from('cuadrante')
-    .select('id, codigo_turno, incidencia')
-    .eq('trabajadora_id', sol.solicitante_id)
-    .eq('fecha', sol.fecha_desde)
-    .single();
+  // Cambio completo con 4 celdas:
+  // fecha_desde_b = día de ella que YO voy a hacer (sol-fecha-b en el formulario)
+  // fecha_desde   = mi día que ELLA va a hacer (sol-fecha-ini en el formulario)
 
-  // Obtener datos del cuadrante de B (contraparte) en su fecha
-  const { data: celdaB } = await sb.from('cuadrante')
-    .select('id, codigo_turno, incidencia')
-    .eq('trabajadora_id', sol.contraparte_id)
-    .eq('fecha', sol.fecha_desde_b || sol.fecha_desde)
-    .single();
+  const fechaB = sol.fecha_desde_b || sol.fecha_desde;
+  const fechaA = sol.fecha_desde;
 
-  if (!celdaA || !celdaB) {
-    alert('Error: no se encontraron los turnos en el cuadrante.');
+  // Las 4 celdas involucradas
+  const [r1, r2, r3, r4] = await Promise.all([
+    // Celda del solicitante en fecha_desde_b (el día de ella — yo lo hago)
+    sb.from('cuadrante').select('id,codigo_turno,incidencia').eq('trabajadora_id',sol.solicitante_id).eq('fecha',fechaB).eq('es_doblaje',false).single(),
+    // Celda de la contraparte en fecha_desde_b (el día de ella — ella lo tenía)
+    sb.from('cuadrante').select('id,codigo_turno,incidencia').eq('trabajadora_id',sol.contraparte_id).eq('fecha',fechaB).eq('es_doblaje',false).single(),
+    // Celda del solicitante en fecha_desde (mi día — yo lo tenía)
+    sb.from('cuadrante').select('id,codigo_turno,incidencia').eq('trabajadora_id',sol.solicitante_id).eq('fecha',fechaA).eq('es_doblaje',false).single(),
+    // Celda de la contraparte en fecha_desde (mi día — ella lo hace)
+    sb.from('cuadrante').select('id,codigo_turno,incidencia').eq('trabajadora_id',sol.contraparte_id).eq('fecha',fechaA).eq('es_doblaje',false).single(),
+  ]);
+
+  const solEnFechaB = r1.data;   // Solicitante en día de ella (tenía L o lo que tuviera)
+  const contEnFechaB = r2.data;  // Contraparte en su día (tenía TC3 — el turno que yo le hago)
+  const solEnFechaA = r3.data;   // Solicitante en mi día (tenía N — el turno que ella me hace)
+  const contEnFechaA = r4.data;  // Contraparte en mi día (tenía L o lo que tuviera)
+
+  if (!solEnFechaB || !contEnFechaB || !solEnFechaA || !contEnFechaA) {
+    alert('Error: no se encontraron todos los turnos en el cuadrante.');
+    console.log('celdas:', {solEnFechaB, contEnFechaB, solEnFechaA, contEnFechaA});
     return;
   }
 
-  // Helper: preparar los datos correctos para el intercambio
-  // Si la celda solo tiene incidencia (L, F...) sin turno, mantener esa incidencia
-  function prepararDatos(celdaOrigen, celdaDestino) {
-    return {
-      codigo_turno: celdaOrigen.codigo_turno || null,
-      incidencia: celdaOrigen.incidencia || null,
-      turno_original: celdaDestino.codigo_turno || celdaDestino.incidencia || null,
-      modificado_por: currentUser.id,
-      modificado_en: new Date().toISOString()
-    };
-  }
+  const turnoDeElla = { codigo_turno: contEnFechaB.codigo_turno, incidencia: contEnFechaB.incidencia };
+  const turnoMio    = { codigo_turno: solEnFechaA.codigo_turno,   incidencia: solEnFechaA.incidencia };
 
-  // Intercambiar: A pasa a tener el turno de B y viceversa
-  await sb.from('cuadrante').update(prepararDatos(celdaB, celdaA)).eq('id', celdaA.id);
-  await sb.from('cuadrante').update(prepararDatos(celdaA, celdaB)).eq('id', celdaB.id);
+  // En fecha_desde_b (su día):
+  // - Yo paso a hacer su turno
+  await sb.from('cuadrante').update({ ...turnoDeElla, modificado_por: currentUser.id, modificado_en: new Date().toISOString() }).eq('id', solEnFechaB.id);
+  // - Ella queda con lo que yo tenía ese día (normalmente L)
+  await sb.from('cuadrante').update({ codigo_turno: solEnFechaB.codigo_turno, incidencia: solEnFechaB.incidencia, modificado_por: currentUser.id, modificado_en: new Date().toISOString() }).eq('id', contEnFechaB.id);
+
+  // En fecha_desde (mi día):
+  // - Ella pasa a hacer mi turno
+  await sb.from('cuadrante').update({ ...turnoMio, modificado_por: currentUser.id, modificado_en: new Date().toISOString() }).eq('id', contEnFechaA.id);
+  // - Yo quedo con lo que ella tenía ese día (normalmente L)
+  await sb.from('cuadrante').update({ codigo_turno: contEnFechaA.codigo_turno, incidencia: contEnFechaA.incidencia, modificado_por: currentUser.id, modificado_en: new Date().toISOString() }).eq('id', solEnFechaA.id);
 }
 
 async function aplicarCambioDevolucion(sol) {
