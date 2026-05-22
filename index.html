@@ -1281,22 +1281,21 @@ async function aplicarCambioCompleto(sol) {
   const fechaB = sol.fecha_desde_b || sol.fecha_desde;
   const fechaA = sol.fecha_desde;
 
-  // Las 4 celdas involucradas
-  const [r1, r2, r3, r4] = await Promise.all([
-    // Celda del solicitante en fecha_desde_b (el día de ella — yo lo hago)
-    sb.from('cuadrante').select('id,codigo_turno,incidencia').eq('trabajadora_id',sol.solicitante_id).eq('fecha',fechaB).eq('es_doblaje',false).single(),
-    // Celda de la contraparte en fecha_desde_b (el día de ella — ella lo tenía)
-    sb.from('cuadrante').select('id,codigo_turno,incidencia').eq('trabajadora_id',sol.contraparte_id).eq('fecha',fechaB).eq('es_doblaje',false).single(),
-    // Celda del solicitante en fecha_desde (mi día — yo lo tenía)
-    sb.from('cuadrante').select('id,codigo_turno,incidencia').eq('trabajadora_id',sol.solicitante_id).eq('fecha',fechaA).eq('es_doblaje',false).single(),
-    // Celda de la contraparte en fecha_desde (mi día — ella lo hace)
-    sb.from('cuadrante').select('id,codigo_turno,incidencia').eq('trabajadora_id',sol.contraparte_id).eq('fecha',fechaA).eq('es_doblaje',false).single(),
-  ]);
+  // Las 4 celdas involucradas — sin filtro es_doblaje para compatibilidad con registros antiguos
+  async function getCelda(trabId, fecha) {
+    const { data } = await sb.from('cuadrante')
+      .select('id,codigo_turno,incidencia')
+      .eq('trabajadora_id', trabId)
+      .eq('fecha', fecha)
+      .neq('es_doblaje', true)
+      .limit(1);
+    return data && data.length > 0 ? data[0] : null;
+  }
 
-  const solEnFechaB = r1.data;   // Solicitante en día de ella (tenía L o lo que tuviera)
-  const contEnFechaB = r2.data;  // Contraparte en su día (tenía TC3 — el turno que yo le hago)
-  const solEnFechaA = r3.data;   // Solicitante en mi día (tenía N — el turno que ella me hace)
-  const contEnFechaA = r4.data;  // Contraparte en mi día (tenía L o lo que tuviera)
+  const solEnFechaB  = await getCelda(sol.solicitante_id, fechaB);
+  const contEnFechaB = await getCelda(sol.contraparte_id, fechaB);
+  const solEnFechaA  = await getCelda(sol.solicitante_id, fechaA);
+  const contEnFechaA = await getCelda(sol.contraparte_id, fechaA);
 
   if (!solEnFechaB || !contEnFechaB || !solEnFechaA || !contEnFechaA) {
     alert('Error: no se encontraron todos los turnos en el cuadrante.');
