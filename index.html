@@ -1987,7 +1987,7 @@ async function editarCelda(nick, dia, codActual, labelActual) {
   modal.id = 'modal-celda';
 
   // Turnos disponibles según categoría
-  const turnosAux = ['M1','M2','M3','M4','M5','M6','M7','M8','M9','M10','M11','M12','CD1','CD2','CD3','T1','T2','T3','T4','T5','T6','TC1','TC2','TC3','N1','M-HE','T-HE','N-HE'];
+  const turnosAux = ['M1','M2','M3','M4','M5','M6','M7','M8','M9','M10','M11','M12','CD1','CD2','CD3','T1','T2','T3','T4','T5','T6','TC1','TC2','TC3','N','M-HE','T-HE','N-HE'];
   const turnosEnf = ['M','M1','M2','M3','T','N','M-HE','T-HE','N-HE'];
   const turnos = trab.categoria === 'enfermera' ? turnosEnf : turnosAux;
   const incidencias = ['L','F','AP','P','IT','VAC','HE','DH'];
