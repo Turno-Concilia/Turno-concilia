@@ -2450,14 +2450,17 @@ async function registrarNotificaciones() {
   }
 }
 
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFwY2lkZ3NqZWZsdGlscnplZ29mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2ODc4MjQsImV4cCI6MjA5NDI2MzgyNH0.jiXpCvxoSDjVq0nWL3vcFG-AzUvQKRyiWAuEjuBRMn0';
+
 async function enviarNotificacionLocal(trabajadoraId, titulo, cuerpo, tag) {
-  // Llamar a la Edge Function de Supabase para enviar la notificación
+  if (!trabajadoraId) return;
   try {
-    await fetch(`https://apcidgsjefltilrzegof.supabase.co/functions/v1/send-push`, {
+    const res = await fetch('https://apcidgsjefltilrzegof.supabase.co/functions/v1/send-push', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${sb.supabaseKey}`
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'apikey': SUPABASE_ANON_KEY
       },
       body: JSON.stringify({
         trabajadora_id: trabajadoraId,
@@ -2466,6 +2469,8 @@ async function enviarNotificacionLocal(trabajadoraId, titulo, cuerpo, tag) {
         tag: tag || 'miturno'
       })
     });
+    const data = await res.json();
+    console.log('Notificación enviada:', data);
   } catch (err) {
     console.log('Error enviando notificación:', err);
   }
