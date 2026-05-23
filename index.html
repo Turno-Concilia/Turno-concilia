@@ -787,6 +787,8 @@ async function iniciarApp() {
   renderSolicitudes();
   cargarPerfil();
   inicializarEventosSolicitudes();
+  // Registrar notificaciones push (pide permiso al usuario)
+  setTimeout(() => registrarNotificaciones(), 2000);
 }
 
 async function cargarTrabajadoras() {
@@ -1267,6 +1269,14 @@ async function aceptarCambio(solicitudId) {
   } else if (sol.tipo_cambio === 'doblaje') {
     await aplicarCambioDoblaje(sol);
   }
+
+  // Notificar al solicitante
+  await enviarNotificacionLocal(
+    sol.solicitante_id,
+    '✅ Cambio aceptado',
+    `${currentUser.nick} ha aceptado tu solicitud de cambio`,
+    'cambio-aceptado'
+  );
 
   alert('✓ Cambio aceptado y aplicado en el cuadrante.');
   renderSolicitudes();
@@ -1826,6 +1836,15 @@ async function enviarSolicitud() {
   const { error } = await sb.from('solicitudes').insert(solicitud);
   if (error) { alert('Error al enviar: ' + error.message); return; }
 
+  // Notificar a la contraparte
+  const contraparte_nick = trabajadoras.find(t => t.id === contraparte)?.nick || 'tu compañera';
+  await enviarNotificacionLocal(
+    contraparte,
+    '📅 Nueva solicitud de cambio',
+    `${currentUser.nick} te pide un cambio de turno`,
+    'cambio-nuevo'
+  );
+
   const msg = tipoCambioActual === 'completo'
     ? 'Solicitud enviada. Tu compañera recibirá la notificación.'
     : tipoCambioActual === 'doblaje'
@@ -2382,6 +2401,74 @@ async function renderMiCuadrante() {
   </div>`;
 
   container.innerHTML = html;
+}
+
+// ============================================================
+// NOTIFICACIONES PUSH
+// ============================================================
+const VAPID_PUBLIC_KEY = 'BMu7OMDj2ovDego5CmoXwq_GqV9wB_quBhRYly8o3k78SfmJcxCr2WPSFtiX74VsRxeF1QkHnDSu_Y_TpU2id7M';
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+async function registrarNotificaciones() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+  try {
+    // Registrar service worker
+    const reg = await navigator.serviceWorker.register('/Turno-concilia/sw.js');
+    
+    // Pedir permiso
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') return;
+
+    // Obtener suscripción
+    const subscription = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+    });
+
+    const sub = subscription.toJSON();
+    
+    // Guardar en Supabase
+    await sb.from('push_subscriptions').upsert({
+      trabajadora_id: currentUser.id,
+      endpoint: sub.endpoint,
+      p256dh: sub.keys.p256dh,
+      auth: sub.keys.auth
+    }, { onConflict: 'trabajadora_id,endpoint' });
+
+    console.log('Notificaciones registradas correctamente');
+  } catch (err) {
+    console.log('Error registrando notificaciones:', err);
+  }
+}
+
+async function enviarNotificacionLocal(trabajadoraId, titulo, cuerpo, tag) {
+  // Llamar a la Edge Function de Supabase para enviar la notificación
+  try {
+    await fetch(`https://apcidgsjefltilrzegof.supabase.co/functions/v1/send-push`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${sb.supabaseKey}`
+      },
+      body: JSON.stringify({
+        trabajadora_id: trabajadoraId,
+        title: titulo,
+        body: cuerpo,
+        tag: tag || 'miturno'
+      })
+    });
+  } catch (err) {
+    console.log('Error enviando notificación:', err);
+  }
 }
 
 // ============================================================
