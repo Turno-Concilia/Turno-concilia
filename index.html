@@ -2459,8 +2459,7 @@ async function enviarNotificacionLocal(trabajadoraId, titulo, cuerpo, tag) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        'apikey': SUPABASE_ANON_KEY
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
       },
       body: JSON.stringify({
         trabajadora_id: trabajadoraId,
