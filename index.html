@@ -1316,16 +1316,66 @@ async function aplicarCambioCompleto(sol) {
   const turnoDeElla = { codigo_turno: contEnFechaB.codigo_turno, incidencia: contEnFechaB.incidencia };
   const turnoMio    = { codigo_turno: solEnFechaA.codigo_turno,   incidencia: solEnFechaA.incidencia };
 
+  // Detectar si alguno de los días es L/F/vacío — si es así convertir en devolución con deuda
+  const esLibre = (celda) => !celda.codigo_turno || ['L','F','VAC','AP','P','DH','IT'].includes(celda.incidencia || celda.codigo_turno);
+
+  const ellaEstaLibreEnFechaB = esLibre(contEnFechaB);  // Ella tiene L en su día — yo le cubro sin intercambio
+  const yoEstoyLibreEnFechaA  = esLibre(solEnFechaA);   // Yo tengo L en mi día — ella me cubre sin intercambio
+
+  if (ellaEstaLibreEnFechaB && yoEstoyLibreEnFechaA) {
+    // Ambos libres — no tiene sentido, no hacer nada
+    console.warn('Cambio completo entre dos días libres — ignorado');
+    return;
+  }
+
+  if (ellaEstaLibreEnFechaB) {
+    // Ella tiene L en su día — yo le hago su turno (que es L, no tiene turno)
+    // En realidad ella me cubre mi día → devolución posterior con deuda
+    // Solo aplicar mi día: ella hace mi turno, yo quedo con L
+    await sb.from('cuadrante').update({ ...turnoMio, modificado_por: currentUser.id, modificado_en: new Date().toISOString() }).eq('id', contEnFechaA.id);
+    await sb.from('cuadrante').update({ codigo_turno: null, incidencia: 'L', modificado_por: currentUser.id, modificado_en: new Date().toISOString() }).eq('id', solEnFechaA.id);
+    // Registrar deuda — yo le debo las horas a ella
+    const horasDeuda = getHorasCodigo(turnoMio.codigo_turno || turnoMio.incidencia);
+    if (horasDeuda > 0) {
+      await sb.from('bolsa_deudas').insert({
+        acreedora_id: sol.contraparte_id,
+        deudora_id: sol.solicitante_id,
+        horas: horasDeuda,
+        fecha_origen: fechaA,
+        solicitud_id: sol.id,
+        estado: 'pendiente'
+      });
+    }
+    return;
+  }
+
+  if (yoEstoyLibreEnFechaA) {
+    // Yo tengo L en mi día — ella no tiene que cubrirme nada
+    // Solo aplicar su día: yo le hago su turno, ella queda con L
+    await sb.from('cuadrante').update({ ...turnoDeElla, modificado_por: currentUser.id, modificado_en: new Date().toISOString() }).eq('id', solEnFechaB.id);
+    await sb.from('cuadrante').update({ codigo_turno: null, incidencia: 'L', modificado_por: currentUser.id, modificado_en: new Date().toISOString() }).eq('id', contEnFechaB.id);
+    // Registrar deuda — ella me debe las horas a mí
+    const horasDeuda = getHorasCodigo(turnoDeElla.codigo_turno || turnoDeElla.incidencia);
+    if (horasDeuda > 0) {
+      await sb.from('bolsa_deudas').insert({
+        acreedora_id: sol.solicitante_id,
+        deudora_id: sol.contraparte_id,
+        horas: horasDeuda,
+        fecha_origen: fechaB,
+        solicitud_id: sol.id,
+        estado: 'pendiente'
+      });
+    }
+    return;
+  }
+
+  // Cambio completo normal — ambos tienen turno real
   // En fecha_desde_b (su día):
-  // - Yo paso a hacer su turno
   await sb.from('cuadrante').update({ ...turnoDeElla, modificado_por: currentUser.id, modificado_en: new Date().toISOString() }).eq('id', solEnFechaB.id);
-  // - Ella queda con lo que yo tenía ese día (normalmente L)
   await sb.from('cuadrante').update({ codigo_turno: solEnFechaB.codigo_turno, incidencia: solEnFechaB.incidencia, modificado_por: currentUser.id, modificado_en: new Date().toISOString() }).eq('id', contEnFechaB.id);
 
   // En fecha_desde (mi día):
-  // - Ella pasa a hacer mi turno
   await sb.from('cuadrante').update({ ...turnoMio, modificado_por: currentUser.id, modificado_en: new Date().toISOString() }).eq('id', contEnFechaA.id);
-  // - Yo quedo con lo que ella tenía ese día (normalmente L)
   await sb.from('cuadrante').update({ codigo_turno: contEnFechaA.codigo_turno, incidencia: contEnFechaA.incidencia, modificado_por: currentUser.id, modificado_en: new Date().toISOString() }).eq('id', solEnFechaA.id);
 }
 
@@ -2934,4 +2984,3 @@ async function guardarNuevaPassword() {
 </script>
 </body>
 </html>
-
