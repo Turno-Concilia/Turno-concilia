@@ -1291,7 +1291,7 @@ async function aplicarCambioCompleto(sol) {
   const fechaB = sol.fecha_desde_b || sol.fecha_desde;
   const fechaA = sol.fecha_desde;
 
-  // Las 4 celdas involucradas — sin filtro es_doblaje para compatibilidad con registros antiguos
+  // Las 4 celdas involucradas
   async function getCelda(trabId, fecha) {
     const { data } = await sb.from('cuadrante')
       .select('id,codigo_turno,incidencia')
@@ -1302,16 +1302,24 @@ async function aplicarCambioCompleto(sol) {
     return data && data.length > 0 ? data[0] : null;
   }
 
-  const solEnFechaB  = await getCelda(sol.solicitante_id, fechaB);
-  const contEnFechaB = await getCelda(sol.contraparte_id, fechaB);
-  const solEnFechaA  = await getCelda(sol.solicitante_id, fechaA);
-  const contEnFechaA = await getCelda(sol.contraparte_id, fechaA);
+  // fechaB = día de ELLA que YO le hago → necesito celda de ELLA y celda de YO en esa fecha
+  // fechaA = mi día que ELLA me hace → necesito celda de YO y celda de ELLA en esa fecha
+  const miCeldaEnFechaB   = await getCelda(sol.solicitante_id, fechaB);  // lo que yo tenía el día de ella
+  const suCeldaEnFechaB   = await getCelda(sol.contraparte_id, fechaB);  // su turno (que yo le hago)
+  const miCeldaEnFechaA   = await getCelda(sol.solicitante_id, fechaA);  // mi turno (que ella me hace)
+  const suCeldaEnFechaA   = await getCelda(sol.contraparte_id, fechaA);  // lo que ella tenía mi día
 
-  if (!solEnFechaB || !contEnFechaB || !solEnFechaA || !contEnFechaA) {
+  if (!miCeldaEnFechaB || !suCeldaEnFechaB || !miCeldaEnFechaA || !suCeldaEnFechaA) {
     alert('Error: no se encontraron todos los turnos en el cuadrante.');
-    console.log('celdas:', {solEnFechaB, contEnFechaB, solEnFechaA, contEnFechaA});
+    console.log('celdas:', {miCeldaEnFechaB, suCeldaEnFechaB, miCeldaEnFechaA, suCeldaEnFechaA});
     return;
   }
+
+  // Renombrar para claridad
+  const solEnFechaB  = miCeldaEnFechaB;
+  const contEnFechaB = suCeldaEnFechaB;
+  const solEnFechaA  = miCeldaEnFechaA;
+  const contEnFechaA = suCeldaEnFechaA;
 
   const turnoDeElla = { codigo_turno: contEnFechaB.codigo_turno, incidencia: contEnFechaB.incidencia };
   const turnoMio    = { codigo_turno: solEnFechaA.codigo_turno,   incidencia: solEnFechaA.incidencia };
