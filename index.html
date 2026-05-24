@@ -1856,9 +1856,44 @@ async function enviarSolicitud() {
   if (tipoCambioActual === 'completo') {
     const fechaB = document.getElementById('sol-fecha-b').value;
     const turnoB = document.getElementById('sol-turno-b').value;
-    if (!fechaB || !turnoB) { alert('Indica la fecha y turno de tu compañera.'); return; }
     const turnoA2 = document.getElementById('sol-turno-a').value;
+    if (!fechaB || !turnoB) { alert('Indica la fecha y turno de tu compañera.'); return; }
     if (fechaB === fechaA && turnoB === turnoA2) { alert('No tiene sentido cambiar el mismo turno del mismo día.'); return; }
+
+    // Validar que yo estoy libre el día que le hago a ella
+    const esTurnoReal = (t) => t && !['L','F','AP','VAC','P','DH','IT','SA',''].includes(t);
+    if (esTurnoReal(turnoA2) && fechaB !== fechaA) {
+      // Consultar mi turno en fechaB
+      const { data: miCeldaFechaB } = await sb.from('cuadrante')
+        .select('codigo_turno, incidencia')
+        .eq('trabajadora_id', currentUser.id)
+        .eq('fecha', fechaB)
+        .neq('es_doblaje', true)
+        .limit(1)
+        .single();
+      
+      const miTurnoEnFechaB = miCeldaFechaB?.codigo_turno || miCeldaFechaB?.incidencia || '';
+      if (esTurnoReal(miTurnoEnFechaB)) {
+        alert(`⚠️ Tú ya tienes turno (${miTurnoEnFechaB}) el ${fechaB}. No puedes hacer el turno de tu compañera ese día a menos que sea un doblaje.`);
+        return;
+      }
+    }
+
+    // Validar que ella está libre el día que me devuelve
+    const { data: suCeldaFechaA } = await sb.from('cuadrante')
+      .select('codigo_turno, incidencia')
+      .eq('trabajadora_id', contraparte)
+      .eq('fecha', fechaA)
+      .neq('es_doblaje', true)
+      .limit(1)
+      .single();
+
+    const suTurnoEnFechaA = suCeldaFechaA?.codigo_turno || suCeldaFechaA?.incidencia || '';
+    if (esTurnoReal(suTurnoEnFechaA)) {
+      alert(`⚠️ Tu compañera ya tiene turno (${suTurnoEnFechaA}) el ${fechaA}. No puede hacerte ese día a menos que sea un doblaje.`);
+      return;
+    }
+
     solicitud.fecha_desde_b = fechaB;
   }
 
