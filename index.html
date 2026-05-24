@@ -1201,12 +1201,12 @@ async function renderSolicitudes() {
           <div class="sol-actions" style="margin-top:6px">
             ${esCoord && s.tipo === 'permiso' ? `
               <button class="btn-accept" onclick="aprobarPermiso('${s.id}')">✓ Aprobar</button>
-              <button class="btn-reject" onclick="rechazarCambio('${s.id}')">✗ Rechazar</button>
+              <button class="btn-reject" onclick="rechazarCambio('${s.id}')">No puede ser</button>
             ` : esCoord ? `
               <span style="font-size:11px;color:var(--teal-dark)">✓ Aplicado</span>
             ` : (esMiSolicitud && s.estado === 'pendiente') ? `
               <button class="btn-accept" onclick="aceptarCambio('${s.id}')">✓ Aceptar</button>
-              <button class="btn-reject" onclick="rechazarCambio('${s.id}')">✗ Rechazar</button>
+              <button class="btn-reject" onclick="rechazarCambio('${s.id}')">No me viene bien</button>
             ` : '<span style="font-size:11px;color:var(--text-muted)">Pendiente de respuesta</span>'}
           </div>
         </div>
@@ -1235,7 +1235,7 @@ async function renderSolicitudes() {
     const estadoLabel = {
       pendiente: 'Esperando respuesta',
       aprobada: 'Aceptado ✓',
-      vetada: 'Vetado',
+      vetada: 'No viene bien',
       cancelada: 'Cancelado',
       pendiente_aprobacion: 'Pdte. coordinadora'
     }[s.estado] || s.estado;
