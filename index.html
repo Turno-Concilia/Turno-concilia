@@ -106,6 +106,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .t-VAC{background:var(--green-light);color:var(--green)}
 .t-SA{background:#FAEEDA;color:#854F0B;border:1px dashed #BA7517;cursor:pointer}
 .t-doblaje{background:#FFF0E0;color:#8B2500;border:2px solid #E65100;font-weight:600;font-size:10px}
+.turno-modificado{outline:2px solid #9C27B0!important;outline-offset:1px}
 .col-findes{background:#FFF0F0!important}
 .cuadrante-tabla thead th.col-findes{background:#FFD6D6!important;color:#C0392B!important}
 .col-hoy{background:#FFF3CD!important;border-top:3px solid #F0A500!important}
@@ -887,7 +888,8 @@ async function renderCuadrante() {
         const cod = r.incidencia || r.codigo_turno || '';
         if (cod && !r.es_doblaje) {
           // Primero registrar solo los turnos principales
-          filas[nick][dia] = { cod, turno: cod };
+          const modificado = r.turno_original && r.turno_original !== cod;
+          filas[nick][dia] = { cod, turno: cod, modificado };
         }
       }
     });
@@ -941,7 +943,8 @@ async function renderCuadrante() {
       const onclick = (esSA && esPuestoCompartido && esMia) ? ` onclick="reclamarDia('${nick}',${d})" title="Reclamar este día"` : '';
       const esCoordActual = currentUser && ['coordinadora','coordinadora_enfermera','superadmin'].includes(currentUser.rol);
       const onclickEdit = esCoordActual ? ` onclick="editarCelda('${nick}',${d},'${cod}','${label}')"` : (cod === 'SA' && esPuestoCompartido && esMia ? ` onclick="reclamarDia('${nick}',${d})" title="Reclamar este día"` : '');
-      if (cod) html += `<span class="turno-pill ${cls}" style="${esCoordActual?'cursor:pointer':''}"${onclickEdit}>${label}</span>`;
+      const esModificado = celda && celda.modificado;
+      if (cod) html += `<span class="turno-pill ${cls}${esModificado?' turno-modificado':''}" style="${esCoordActual?'cursor:pointer':''}" title="${esModificado?'Turno modificado':''}"${onclickEdit}>${label}</span>`;
       else if (esCoordActual) html += `<span class="turno-pill t-L" style="cursor:pointer;opacity:0.4"${onclickEdit}>+</span>`;
       html += '</td>';
     }
