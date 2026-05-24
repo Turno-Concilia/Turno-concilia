@@ -1883,7 +1883,7 @@ async function enviarSolicitud() {
       const miTurnoEnFechaB = miCeldaFechaB?.codigo_turno || miCeldaFechaB?.incidencia || '';
       // Solo bloquear si son del mismo tipo (doblaje real)
       if (esTurnoReal(miTurnoEnFechaB) && tipoTurno(miTurnoEnFechaB) === tipoTurno(turnoB)) {
-        alert(`⚠️ Tú ya tienes turno (${miTurnoEnFechaB}) el ${fechaB} del mismo tipo. Usa la opción "Con doblaje" si quieres hacer los dos turnos.`);
+        alert(`⚠️ Tú ya tienes turno (${miTurnoEnFechaB}) el ${fechaB}. No puedes hacer dos turnos del mismo tipo a la vez.`);
         return;
       }
     }
@@ -1899,7 +1899,7 @@ async function enviarSolicitud() {
 
     const suTurnoEnFechaA = suCeldaFechaA?.codigo_turno || suCeldaFechaA?.incidencia || '';
     if (esTurnoReal(suTurnoEnFechaA) && tipoTurno(suTurnoEnFechaA) === tipoTurno(turnoA2)) {
-      alert(`⚠️ Tu compañera ya tiene turno (${suTurnoEnFechaA}) el ${fechaA} del mismo tipo. Usa la opción "Con doblaje" si quieres hacer los dos turnos.`);
+      alert(`⚠️ Tu compañera ya tiene turno (${suTurnoEnFechaA}) el ${fechaA}. No puede hacer dos turnos del mismo tipo a la vez.`);
       return;
     }
 
