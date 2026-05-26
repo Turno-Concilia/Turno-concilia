@@ -427,11 +427,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
             <div style="font-size:11px;margin-top:4px;font-weight:500">Parcial por horas</div>
             <div style="font-size:10px;color:var(--text-muted);margin-top:2px">Mín. 1 hora</div>
           </button>
-          <button class="tipo-cambio-btn" onclick="selTipoCambio('doblaje',this)">
-            <div style="font-size:18px">⚡</div>
-            <div style="font-size:11px;margin-top:4px;font-weight:500">Con doblaje</div>
-            <div style="font-size:10px;color:var(--text-muted);margin-top:2px">Hago su turno + el mío</div>
-          </button>
+
         </div>
 
         <!-- CAMPOS COMUNES -->
@@ -1383,46 +1379,57 @@ async function aplicarCambioMultiple(sol, diasYo, diasElla) {
     return data && data.length > 0 ? data[0] : null;
   }
 
-  // Aplicar los días que YO le hago (su día → yo tomo su turno, ella queda con lo mío)
-  for (const dia of diasYo) {
-    const miCelda = await getCelda(sol.solicitante_id, dia.fecha);
-    const suCelda = await getCelda(sol.contraparte_id, dia.fecha);
-    if (!miCelda || !suCelda) continue;
-    const miTurnoOriginal = { codigo_turno: miCelda.codigo_turno, incidencia: miCelda.incidencia };
-    const suTurnoOriginal = { codigo_turno: suCelda.codigo_turno, incidencia: suCelda.incidencia };
-    // Yo tomo su turno
-    await sb.from('cuadrante').update({ 
-      codigo_turno: suTurnoOriginal.codigo_turno, incidencia: suTurnoOriginal.incidencia,
-      turno_original: miTurnoOriginal.codigo_turno || miTurnoOriginal.incidencia,
-      modificado_por: currentUser.id, modificado_en: new Date().toISOString()
-    }).eq('id', miCelda.id);
-    // Ella toma lo que yo tenía
-    await sb.from('cuadrante').update({ 
-      codigo_turno: miTurnoOriginal.codigo_turno, incidencia: miTurnoOriginal.incidencia,
-      turno_original: suTurnoOriginal.codigo_turno || suTurnoOriginal.incidencia,
-      modificado_por: currentUser.id, modificado_en: new Date().toISOString()
-    }).eq('id', suCelda.id);
-  }
+  // Aplicar todos los días — intercambio normal en cada par
+  const todosLosDias = [...diasYo, ...diasElla];
+  const fechasProcesadas = new Set();
 
-  // Aplicar los días que ELLA me hace (mi día → ella toma mi turno, yo quedo con lo suyo)
-  for (const dia of diasElla) {
+  for (const dia of todosLosDias) {
+    if (fechasProcesadas.has(dia.fecha)) continue;
+
+    const diaYo = diasYo.find(d => d.fecha === dia.fecha);
+    const diaElla = diasElla.find(d => d.fecha === dia.fecha);
+
     const miCelda = await getCelda(sol.solicitante_id, dia.fecha);
     const suCelda = await getCelda(sol.contraparte_id, dia.fecha);
     if (!miCelda || !suCelda) continue;
-    const miTurnoOriginal = { codigo_turno: miCelda.codigo_turno, incidencia: miCelda.incidencia };
-    const suTurnoOriginal = { codigo_turno: suCelda.codigo_turno, incidencia: suCelda.incidencia };
-    // Ella toma mi turno
-    await sb.from('cuadrante').update({ 
-      codigo_turno: miTurnoOriginal.codigo_turno, incidencia: miTurnoOriginal.incidencia,
-      turno_original: suTurnoOriginal.codigo_turno || suTurnoOriginal.incidencia,
-      modificado_por: currentUser.id, modificado_en: new Date().toISOString()
-    }).eq('id', suCelda.id);
-    // Yo quedo con lo que ella tenía
-    await sb.from('cuadrante').update({ 
-      codigo_turno: suTurnoOriginal.codigo_turno, incidencia: suTurnoOriginal.incidencia,
-      turno_original: miTurnoOriginal.codigo_turno || miTurnoOriginal.incidencia,
-      modificado_por: currentUser.id, modificado_en: new Date().toISOString()
-    }).eq('id', miCelda.id);
+
+    const miTurno = { codigo_turno: miCelda.codigo_turno, incidencia: miCelda.incidencia };
+    const suTurno = { codigo_turno: suCelda.codigo_turno, incidencia: suCelda.incidencia };
+
+    // Detectar si es doblaje (mismo día en ambos lados y checkbox marcado)
+    const esDoblaje = sol.motivo && sol.motivo.includes('|DOBLAJE:' + dia.fecha + '|');
+
+    if (esDoblaje) {
+      // DOBLAJE: yo añado su turno como segunda píldora, ella queda con L
+      await sb.from('cuadrante').insert({
+        trabajadora_id: sol.solicitante_id,
+        fecha: dia.fecha,
+        codigo_turno: suTurno.codigo_turno,
+        incidencia: null,
+        es_doblaje: true,
+        es_servicio_min: false
+      });
+      await sb.from('cuadrante').update({
+        codigo_turno: null, incidencia: 'L',
+        turno_original: suTurno.codigo_turno || suTurno.incidencia,
+        modificado_por: currentUser.id, modificado_en: new Date().toISOString()
+      }).eq('id', suCelda.id);
+    } else {
+      // Intercambio normal: cada una toma el turno de la otra
+      await sb.from('cuadrante').update({
+        codigo_turno: suTurno.codigo_turno, incidencia: suTurno.incidencia,
+        turno_original: miTurno.codigo_turno || miTurno.incidencia,
+        modificado_por: currentUser.id, modificado_en: new Date().toISOString()
+      }).eq('id', miCelda.id);
+
+      await sb.from('cuadrante').update({
+        codigo_turno: miTurno.codigo_turno, incidencia: miTurno.incidencia,
+        turno_original: suTurno.codigo_turno || suTurno.incidencia,
+        modificado_por: currentUser.id, modificado_en: new Date().toISOString()
+      }).eq('id', suCelda.id);
+    }
+
+    fechasProcesadas.add(dia.fecha);
   }
 
   // Calcular deuda si hay diferencia de horas
@@ -1578,6 +1585,7 @@ function renderDiasYoLeHago() {
       + btnEliminar + '</div>' + horasLabel;
   });
   container.innerHTML = html;
+  detectarDoblaje();
   actualizarBalance();
 }
 
@@ -1603,6 +1611,7 @@ function renderDiasEllaMeHace() {
       + btnEliminar + '</div>' + horasLabel;
   });
   container.innerHTML = html;
+  detectarDoblaje();
   actualizarBalance();
 }
 
@@ -1682,6 +1691,29 @@ async function getTurnosDelDia(trabId, fecha) {
   if (!data) return [];
   const t = data.codigo_turno || data.incidencia;
   return t ? [t] : [];
+}
+
+function detectarDoblaje() {
+  // Si hay un día que aparece en ambos lados, mostrar opción de doblaje
+  const diasYoFechas = diasYoLeHago.filter(d => d.fecha).map(d => d.fecha);
+  const diasEllaFechas = diasEllaMeHace.filter(d => d.fecha).map(d => d.fecha);
+  const coincidencias = diasYoFechas.filter(f => diasEllaFechas.includes(f));
+  
+  const avisoDiv = document.getElementById('aviso-doblaje');
+  if (!avisoDiv) return;
+  
+  if (coincidencias.length > 0) {
+    const fecha = coincidencias[0];
+    avisoDiv.style.display = 'block';
+    avisoDiv.innerHTML = `
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer">
+        <input type="checkbox" id="chk-doblaje" style="width:16px;height:16px" onchange="actualizarBalance()">
+        ⚡ El ${fecha} aparece en ambos lados — ¿es un doblaje? 
+        (marcar si harás los dos turnos ese día, no si los intercambiáis)
+      </label>`;
+  } else {
+    avisoDiv.style.display = 'none';
+  }
 }
 
 function actualizarBalance() {
@@ -2093,7 +2125,14 @@ async function enviarSolicitud() {
     // Para cambio múltiple, guardar todos los días como JSON en motivo
     solicitud.fecha_desde_b = diasYo[0].fecha;
     solicitud.fecha_desde = diasElla[0].fecha;
-    solicitud.motivo = (solicitud.motivo || '') + '|MULTI|' + JSON.stringify({ diasYo, diasElla });
+    // Detectar días marcados como doblaje
+    const chkDoblaje = document.getElementById('chk-doblaje');
+    const esDoblajeChecked = chkDoblaje && chkDoblaje.checked;
+    const diasYoFechas = diasYo.map(d => d.fecha);
+    const diasEllaFechas = diasElla.map(d => d.fecha);
+    const fechasDoblaje = esDoblajeChecked ? diasYoFechas.filter(f => diasEllaFechas.includes(f)) : [];
+    const doblajeStr = fechasDoblaje.map(f => '|DOBLAJE:' + f + '|').join('');
+    solicitud.motivo = (solicitud.motivo || '') + doblajeStr + '|MULTI|' + JSON.stringify({ diasYo, diasElla });
     
     // Calcular horas y deuda
     const totalYo = diasYo.reduce((s, d) => s + (parseFloat(d.horas) || 0), 0);
