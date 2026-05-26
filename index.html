@@ -1260,8 +1260,8 @@ async function aceptarCambio(solicitudId) {
 
 async function aplicarCambioCompleto(sol) {
   // Detectar si es cambio múltiple
-  if (sol.motivo && sol.motivo.includes('__MULTI__')) {
-    const multiStr = sol.motivo.split('__MULTI__')[1];
+  if (sol.motivo && sol.motivo.includes('|MULTI|')) {
+    const multiStr = sol.motivo.split('|MULTI|')[1];
     const { diasYo, diasElla } = JSON.parse(multiStr);
     await aplicarCambioMultiple(sol, diasYo, diasElla);
     return;
@@ -2087,9 +2087,7 @@ async function enviarSolicitud() {
     // Para cambio múltiple, guardar todos los días como JSON en motivo
     solicitud.fecha_desde_b = diasYo[0].fecha;
     solicitud.fecha_desde = diasElla[0].fecha;
-    solicitud.motivo = (solicitud.motivo || '') + 
-      '
-__MULTI__' + JSON.stringify({ diasYo, diasElla });
+    solicitud.motivo = (solicitud.motivo || '') + '|MULTI|' + JSON.stringify({ diasYo, diasElla });
     
     // Calcular horas y deuda
     const totalYo = diasYo.reduce((s, d) => s + (parseFloat(d.horas) || 0), 0);
