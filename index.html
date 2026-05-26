@@ -1694,23 +1694,40 @@ async function getTurnosDelDia(trabId, fecha) {
   return t ? [t] : [];
 }
 
-function detectarDoblaje() {
-  // Si hay un día que aparece en ambos lados, mostrar opción de doblaje
-  const diasYoFechas = diasYoLeHago.filter(d => d.fecha).map(d => d.fecha);
-  const diasEllaFechas = diasEllaMeHace.filter(d => d.fecha).map(d => d.fecha);
-  const coincidencias = diasYoFechas.filter(f => diasEllaFechas.includes(f));
-  
+async function detectarDoblaje() {
   const avisoDiv = document.getElementById('aviso-doblaje');
   if (!avisoDiv) return;
-  
-  if (coincidencias.length > 0) {
-    const fecha = coincidencias[0];
+
+  // Buscar días donde yo tengo turno real y además le hago el turno a ella
+  const esTurnoReal = (t) => t && !['L','F','AP','VAC','P','DH','IT','SA',''].includes(t);
+  let doblajesDetectados = [];
+
+  for (const dia of diasYoLeHago) {
+    if (!dia.fecha) continue;
+    // Consultar mi turno ese día
+    const { data } = await sb.from('cuadrante')
+      .select('codigo_turno, incidencia')
+      .eq('trabajadora_id', currentUser.id)
+      .eq('fecha', dia.fecha)
+      .neq('es_doblaje', true)
+      .limit(1);
+    const miTurno = data?.[0]?.codigo_turno || data?.[0]?.incidencia || '';
+    if (esTurnoReal(miTurno) && esTurnoReal(dia.turno) && miTurno !== dia.turno) {
+      doblajesDetectados.push({ fecha: dia.fecha, miTurno, suTurno: dia.turno });
+    }
+  }
+
+  if (doblajesDetectados.length > 0) {
+    const d = doblajesDetectados[0];
     avisoDiv.style.display = 'block';
     avisoDiv.innerHTML = `
+      <div style="font-size:12px;font-weight:600;color:#8B2500;margin-bottom:6px">⚡ Posible doblaje detectado</div>
+      <div style="font-size:11px;margin-bottom:8px">
+        El <strong>${d.fecha}</strong> tú tienes <strong>${d.miTurno}</strong> y además harías la <strong>${d.suTurno}</strong> de tu compañera.
+      </div>
       <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer">
         <input type="checkbox" id="chk-doblaje" style="width:16px;height:16px" onchange="actualizarBalance()">
-        ⚡ El ${fecha} aparece en ambos lados — ¿es un doblaje? 
-        (marcar si harás los dos turnos ese día, no si los intercambiáis)
+        Sí, haré los dos turnos ese día (doblaje)
       </label>`;
   } else {
     avisoDiv.style.display = 'none';
