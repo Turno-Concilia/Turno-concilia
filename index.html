@@ -442,53 +442,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           </select>
         </div>
 
-        <!-- YO LE HAGO: su día/turno + horas parciales -->
+        <!-- YO LE HAGO: múltiples días -->
         <div style="background:var(--blue-light);border-radius:var(--radius);padding:12px;margin-bottom:10px">
-          <div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:4px">Yo le hago...</div>
-          <div style="font-size:11px;color:var(--blue);opacity:.8;margin-bottom:8px">El día de ella que yo voy a cubrir</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
-            <div class="form-group" style="margin-bottom:0">
-              <label class="form-label">Su día</label>
-              <input type="date" class="form-input" id="sol-fecha-b">
-            </div>
-            <div class="form-group" style="margin-bottom:0">
-              <label class="form-label">Su turno</label>
-              <select class="form-input" id="sol-turno-b">
-                <option value="">Selecciona fecha</option>
-              </select>
-            </div>
-          </div>
-          <div id="campos-parcial" style="display:none">
-            <div id="horario-turno-b" style="font-size:11px;color:var(--blue);margin-bottom:6px;font-style:italic"></div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-              <div class="form-group" style="margin-bottom:0">
-                <label class="form-label">Yo entro a las</label>
-                <input type="time" class="form-input" id="sol-hora-ini-b2">
-              </div>
-              <div class="form-group" style="margin-bottom:0">
-                <label class="form-label">Yo salgo a las</label>
-                <input type="time" class="form-input" id="sol-hora-fin-b2">
-              </div>
-            </div>
-          </div>
+          <div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:8px">Yo le hago...</div>
+          <div id="dias-yo-le-hago"></div>
+          <button type="button" onclick="añadirDiaYoLeHago()" 
+            style="width:100%;padding:6px;border:1px dashed var(--blue);background:transparent;color:var(--blue);border-radius:var(--radius-sm);font-size:12px;cursor:pointer;margin-top:6px">
+            + Añadir día
+          </button>
+          <div id="campos-parcial" style="display:none"></div>
         </div>
 
-        <!-- ELLA ME DEVUELVE: mi día/turno + horas parciales -->
+        <!-- ELLA ME DEVUELVE: múltiples días -->
         <div id="campos-b" style="background:var(--teal-light);border-radius:var(--radius);padding:12px;margin-bottom:10px">
-          <div style="font-size:12px;font-weight:600;color:var(--teal-dark);margin-bottom:4px" id="label-campos-b">Ella me devuelve...</div>
-          <div style="font-size:11px;color:var(--teal-dark);opacity:.8;margin-bottom:8px" id="sublabel-campos-b">El día mío que ella va a cubrir</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
-            <div class="form-group" style="margin-bottom:0">
-              <label class="form-label">Mi día</label>
-              <input type="date" class="form-input" id="sol-fecha-ini">
-            </div>
-            <div class="form-group" style="margin-bottom:0">
-              <label class="form-label">Mi turno</label>
-              <select class="form-input" id="sol-turno-a">
-                <option value="">Selecciona fecha</option>
-              </select>
-            </div>
-          </div>
+          <div style="font-size:12px;font-weight:600;color:var(--teal-dark);margin-bottom:8px" id="label-campos-b">Ella me devuelve...</div>
+          <div id="dias-ella-me-hace"></div>
+          <button type="button" onclick="añadirDiaEllaMeHace()"
+            style="width:100%;padding:6px;border:1px dashed var(--teal-dark);background:transparent;color:var(--teal-dark);border-radius:var(--radius-sm);font-size:12px;cursor:pointer;margin-top:6px">
+            + Añadir día
+          </button>
           <div id="campos-parcial-b" style="display:none">
             <div id="horario-turno-a" style="font-size:11px;color:var(--teal-dark);margin-bottom:6px;font-style:italic"></div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -1287,10 +1259,15 @@ async function aceptarCambio(solicitudId) {
 }
 
 async function aplicarCambioCompleto(sol) {
-  // Cambio completo con 4 celdas:
-  // fecha_desde_b = día de ella que YO voy a hacer (sol-fecha-b en el formulario)
-  // fecha_desde   = mi día que ELLA va a hacer (sol-fecha-ini en el formulario)
+  // Detectar si es cambio múltiple
+  if (sol.motivo && sol.motivo.includes('__MULTI__')) {
+    const multiStr = sol.motivo.split('__MULTI__')[1];
+    const { diasYo, diasElla } = JSON.parse(multiStr);
+    await aplicarCambioMultiple(sol, diasYo, diasElla);
+    return;
+  }
 
+  // Cambio completo con 4 celdas:
   const fechaB = sol.fecha_desde_b || sol.fecha_desde;
   const fechaA = sol.fecha_desde;
 
@@ -1388,6 +1365,77 @@ async function aplicarCambioCompleto(sol) {
   // En fecha_desde (mi día):
   await sb.from('cuadrante').update({ ...turnoMio, modificado_por: currentUser.id, modificado_en: new Date().toISOString() }).eq('id', contEnFechaA.id);
   await sb.from('cuadrante').update({ codigo_turno: contEnFechaA.codigo_turno, incidencia: contEnFechaA.incidencia, modificado_por: currentUser.id, modificado_en: new Date().toISOString() }).eq('id', solEnFechaA.id);
+}
+
+async function aplicarCambioMultiple(sol, diasYo, diasElla) {
+  // Aplicar cada par de días
+  async function getCelda(trabId, fecha) {
+    const { data } = await sb.from('cuadrante')
+      .select('id,codigo_turno,incidencia')
+      .eq('trabajadora_id', trabId)
+      .eq('fecha', fecha)
+      .neq('es_doblaje', true)
+      .limit(1);
+    return data && data.length > 0 ? data[0] : null;
+  }
+
+  // Aplicar los días que YO le hago (su día → yo tomo su turno, ella queda con lo mío)
+  for (const dia of diasYo) {
+    const miCelda = await getCelda(sol.solicitante_id, dia.fecha);
+    const suCelda = await getCelda(sol.contraparte_id, dia.fecha);
+    if (!miCelda || !suCelda) continue;
+    const miTurnoOriginal = { codigo_turno: miCelda.codigo_turno, incidencia: miCelda.incidencia };
+    const suTurnoOriginal = { codigo_turno: suCelda.codigo_turno, incidencia: suCelda.incidencia };
+    // Yo tomo su turno
+    await sb.from('cuadrante').update({ 
+      codigo_turno: suTurnoOriginal.codigo_turno, incidencia: suTurnoOriginal.incidencia,
+      turno_original: miTurnoOriginal.codigo_turno || miTurnoOriginal.incidencia,
+      modificado_por: currentUser.id, modificado_en: new Date().toISOString()
+    }).eq('id', miCelda.id);
+    // Ella toma lo que yo tenía
+    await sb.from('cuadrante').update({ 
+      codigo_turno: miTurnoOriginal.codigo_turno, incidencia: miTurnoOriginal.incidencia,
+      turno_original: suTurnoOriginal.codigo_turno || suTurnoOriginal.incidencia,
+      modificado_por: currentUser.id, modificado_en: new Date().toISOString()
+    }).eq('id', suCelda.id);
+  }
+
+  // Aplicar los días que ELLA me hace (mi día → ella toma mi turno, yo quedo con lo suyo)
+  for (const dia of diasElla) {
+    const miCelda = await getCelda(sol.solicitante_id, dia.fecha);
+    const suCelda = await getCelda(sol.contraparte_id, dia.fecha);
+    if (!miCelda || !suCelda) continue;
+    const miTurnoOriginal = { codigo_turno: miCelda.codigo_turno, incidencia: miCelda.incidencia };
+    const suTurnoOriginal = { codigo_turno: suCelda.codigo_turno, incidencia: suCelda.incidencia };
+    // Ella toma mi turno
+    await sb.from('cuadrante').update({ 
+      codigo_turno: miTurnoOriginal.codigo_turno, incidencia: miTurnoOriginal.incidencia,
+      turno_original: suTurnoOriginal.codigo_turno || suTurnoOriginal.incidencia,
+      modificado_por: currentUser.id, modificado_en: new Date().toISOString()
+    }).eq('id', suCelda.id);
+    // Yo quedo con lo que ella tenía
+    await sb.from('cuadrante').update({ 
+      codigo_turno: suTurnoOriginal.codigo_turno, incidencia: suTurnoOriginal.incidencia,
+      turno_original: miTurnoOriginal.codigo_turno || miTurnoOriginal.incidencia,
+      modificado_por: currentUser.id, modificado_en: new Date().toISOString()
+    }).eq('id', miCelda.id);
+  }
+
+  // Calcular deuda si hay diferencia de horas
+  const totalYo = diasYo.reduce((s, d) => s + (parseFloat(d.horas) || 0), 0);
+  const totalElla = diasElla.reduce((s, d) => s + (parseFloat(d.horas) || 0), 0);
+  const diff = totalYo - totalElla;
+  
+  if (Math.abs(diff) > 0.01) {
+    await sb.from('bolsa_deudas').insert({
+      acreedora_id: diff > 0 ? sol.solicitante_id : sol.contraparte_id,
+      deudora_id: diff > 0 ? sol.contraparte_id : sol.solicitante_id,
+      horas: Math.abs(diff),
+      fecha_origen: diasYo[0]?.fecha || sol.fecha_desde_b,
+      solicitud_id: sol.id,
+      estado: 'pendiente'
+    });
+  }
 }
 
 async function aplicarCambioDevolucion(sol) {
@@ -1496,6 +1544,168 @@ async function aplicarCambioDoblaje(sol) {
       estado: 'pendiente'
     });
   }
+}
+
+// ============================================================
+// CAMBIO MÚLTIPLE — gestión de días
+// ============================================================
+let diasYoLeHago = [];   // [{fecha, turno, horas}]
+let diasEllaMeHace = []; // [{fecha, turno, horas}]
+
+function renderDiasYoLeHago() {
+  const container = document.getElementById('dias-yo-le-hago');
+  if (!container) return;
+  container.innerHTML = diasYoLeHago.map((d, i) => `
+    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:end;margin-bottom:8px">
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Su día ${diasYoLeHago.length > 1 ? i+1 : ''}</label>
+        <input type="date" class="form-input" value="${d.fecha}" 
+          onchange="actualizarDiaYoLeHago(${i}, 'fecha', this.value)">
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Su turno</label>
+        <select class="form-input" onchange="actualizarDiaYoLeHago(${i}, 'turno', this.value)">
+          <option value="">—</option>
+          ${d.opciones ? d.opciones.map(t => `<option value="${t}" ${d.turno===t?'selected':''}>${t}</option>`).join('') : (d.turno ? `<option value="${d.turno}" selected>${d.turno}</option>` : '')}
+        </select>
+      </div>
+      ${diasYoLeHago.length > 1 ? `<button onclick="eliminarDiaYoLeHago(${i})" style="background:none;border:none;color:#C0392B;font-size:18px;cursor:pointer;padding:0 4px;margin-bottom:2px">×</button>` : '<div></div>'}
+    </div>
+    ${d.horas ? `<div style="font-size:10px;color:var(--blue);margin-bottom:6px;margin-top:-4px">⏱ ${d.horas}h</div>` : ''}
+  `).join('');
+  actualizarBalance();
+}
+
+function renderDiasEllaMeHace() {
+  const container = document.getElementById('dias-ella-me-hace');
+  if (!container) return;
+  container.innerHTML = diasEllaMeHace.map((d, i) => `
+    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:end;margin-bottom:8px">
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Mi día ${diasEllaMeHace.length > 1 ? i+1 : ''}</label>
+        <input type="date" class="form-input" value="${d.fecha}"
+          onchange="actualizarDiaEllaMeHace(${i}, 'fecha', this.value)">
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Mi turno</label>
+        <select class="form-input" onchange="actualizarDiaEllaMeHace(${i}, 'turno', this.value)">
+          <option value="">—</option>
+          ${d.opciones ? d.opciones.map(t => `<option value="${t}" ${d.turno===t?'selected':''}>${t}</option>`).join('') : (d.turno ? `<option value="${d.turno}" selected>${d.turno}</option>` : '')}
+        </select>
+      </div>
+      ${diasEllaMeHace.length > 1 ? `<button onclick="eliminarDiaEllaMeHace(${i})" style="background:none;border:none;color:#C0392B;font-size:18px;cursor:pointer;padding:0 4px;margin-bottom:2px">×</button>` : '<div></div>'}
+    </div>
+    ${d.horas ? `<div style="font-size:10px;color:var(--teal-dark);margin-bottom:6px;margin-top:-4px">⏱ ${d.horas}h</div>` : ''}
+  `).join('');
+  actualizarBalance();
+}
+
+function añadirDiaYoLeHago() {
+  diasYoLeHago.push({ fecha: '', turno: '', horas: 0, opciones: [] });
+  renderDiasYoLeHago();
+}
+
+function añadirDiaEllaMeHace() {
+  diasEllaMeHace.push({ fecha: '', turno: '', horas: 0, opciones: [] });
+  renderDiasEllaMeHace();
+}
+
+function eliminarDiaYoLeHago(i) {
+  diasYoLeHago.splice(i, 1);
+  renderDiasYoLeHago();
+}
+
+function eliminarDiaEllaMeHace(i) {
+  diasEllaMeHace.splice(i, 1);
+  renderDiasEllaMeHace();
+}
+
+async function actualizarDiaYoLeHago(i, campo, valor) {
+  diasYoLeHago[i][campo] = valor;
+  if (campo === 'fecha' && valor) {
+    const contraparteId = document.getElementById('sol-contraparte').value;
+    if (contraparteId) {
+      const { data } = await sb.from('cuadrante')
+        .select('codigo_turno, incidencia')
+        .eq('trabajadora_id', contraparteId)
+        .eq('fecha', valor)
+        .neq('es_doblaje', true)
+        .limit(1).single();
+      const turno = data?.codigo_turno || data?.incidencia || '';
+      diasYoLeHago[i].turno = turno;
+      diasYoLeHago[i].horas = getHorasCodigo(turno);
+      // Cargar opciones de turno del día
+      const turnos = await getTurnosDelDia(contraparteId, valor);
+      diasYoLeHago[i].opciones = turnos;
+    }
+  }
+  if (campo === 'turno') {
+    diasYoLeHago[i].horas = getHorasCodigo(valor);
+  }
+  renderDiasYoLeHago();
+}
+
+async function actualizarDiaEllaMeHace(i, campo, valor) {
+  diasEllaMeHace[i][campo] = valor;
+  if (campo === 'fecha' && valor) {
+    const { data } = await sb.from('cuadrante')
+      .select('codigo_turno, incidencia')
+      .eq('trabajadora_id', currentUser.id)
+      .eq('fecha', valor)
+      .neq('es_doblaje', true)
+      .limit(1).single();
+    const turno = data?.codigo_turno || data?.incidencia || '';
+    diasEllaMeHace[i].turno = turno;
+    diasEllaMeHace[i].horas = getHorasCodigo(turno);
+    const turnos = await getTurnosDelDia(currentUser.id, valor);
+    diasEllaMeHace[i].opciones = turnos;
+  }
+  if (campo === 'turno') {
+    diasEllaMeHace[i].horas = getHorasCodigo(valor);
+  }
+  renderDiasEllaMeHace();
+}
+
+async function getTurnosDelDia(trabId, fecha) {
+  const { data } = await sb.from('cuadrante')
+    .select('codigo_turno, incidencia')
+    .eq('trabajadora_id', trabId)
+    .eq('fecha', fecha)
+    .neq('es_doblaje', true)
+    .limit(1).single();
+  if (!data) return [];
+  const t = data.codigo_turno || data.incidencia;
+  return t ? [t] : [];
+}
+
+function actualizarBalance() {
+  const totalYo = diasYoLeHago.reduce((s, d) => s + (parseFloat(d.horas) || 0), 0);
+  const totalElla = diasEllaMeHace.reduce((s, d) => s + (parseFloat(d.horas) || 0), 0);
+  const balance = document.getElementById('balance-horas');
+  if (!balance) return;
+  if (totalYo === 0 && totalElla === 0) { balance.style.display = 'none'; return; }
+  balance.style.display = 'block';
+  document.getElementById('balance-yo').textContent = `Yo le hago: ${totalYo.toFixed(2)}h`;
+  document.getElementById('balance-ella').textContent = `Ella me hace: ${totalElla.toFixed(2)}h`;
+  const diff = totalYo - totalElla;
+  const deudaEl = document.getElementById('balance-deuda');
+  if (Math.abs(diff) < 0.01) {
+    deudaEl.textContent = '✓ Cambio equilibrado';
+    deudaEl.style.color = 'var(--teal-dark)';
+  } else if (diff > 0) {
+    deudaEl.textContent = `Ella te debe ${diff.toFixed(2)}h → quedará en bolsa de deudas`;
+    deudaEl.style.color = 'var(--amber)';
+  } else {
+    deudaEl.textContent = `Le debes ${Math.abs(diff).toFixed(2)}h → quedará en bolsa de deudas`;
+    deudaEl.style.color = '#C0392B';
+  }
+}
+
+function inicializarDiasMultiples() {
+  diasYoLeHago = [{ fecha: '', turno: '', horas: 0, opciones: [] }];
+  diasEllaMeHace = [{ fecha: '', turno: '', horas: 0, opciones: [] }];
+  renderDiasYoLeHago();
+  renderDiasEllaMeHace();
 }
 
 function toggleDoblajeDevolucion() {
@@ -1857,13 +2067,14 @@ async function enviarSolicitud() {
   };
 
   if (tipoCambioActual === 'completo') {
-    const fechaB = document.getElementById('sol-fecha-b').value;
-    const turnoB = document.getElementById('sol-turno-b').value;
-    const turnoA2 = document.getElementById('sol-turno-a').value;
-    if (!fechaB || !turnoB) { alert('Indica la fecha y turno de tu compañera.'); return; }
-    if (fechaB === fechaA && turnoB === turnoA2) { alert('No tiene sentido cambiar el mismo turno del mismo día.'); return; }
+    // Validar que hay al menos un día en cada parte
+    const diasYo = diasYoLeHago.filter(d => d.fecha && d.turno);
+    const diasElla = diasEllaMeHace.filter(d => d.fecha && d.turno);
+    
+    if (diasYo.length === 0) { alert('Indica al menos un día que tú le haces.'); return; }
+    if (diasElla.length === 0) { alert('Indica al menos un día que ella te hace.'); return; }
 
-    // Validar incompatibilidades de turno (solo bloquear doblajes reales del mismo tipo)
+    // Validar incompatibilidades de turno del mismo tipo el mismo día
     const esTurnoReal = (t) => t && !['L','F','AP','VAC','P','DH','IT','SA',''].includes(t);
     const tipoTurno = (t) => {
       if (!t) return null;
@@ -1873,40 +2084,19 @@ async function enviarSolicitud() {
       return null;
     };
 
-    if (esTurnoReal(turnoA2) && fechaB !== fechaA) {
-      // Consultar mi turno en fechaB
-      const { data: miCeldaFechaB } = await sb.from('cuadrante')
-        .select('codigo_turno, incidencia')
-        .eq('trabajadora_id', currentUser.id)
-        .eq('fecha', fechaB)
-        .neq('es_doblaje', true)
-        .limit(1)
-        .single();
-      
-      const miTurnoEnFechaB = miCeldaFechaB?.codigo_turno || miCeldaFechaB?.incidencia || '';
-      // Solo bloquear si son del mismo tipo (doblaje real)
-      if (esTurnoReal(miTurnoEnFechaB) && tipoTurno(miTurnoEnFechaB) === tipoTurno(turnoB)) {
-        alert(`⚠️ Tú ya tienes turno (${miTurnoEnFechaB}) el ${fechaB}. No puedes hacer dos turnos del mismo tipo a la vez.`);
-        return;
-      }
+    // Para cambio múltiple, guardar todos los días como JSON en motivo
+    solicitud.fecha_desde_b = diasYo[0].fecha;
+    solicitud.fecha_desde = diasElla[0].fecha;
+    solicitud.motivo = (solicitud.motivo || '') + 
+      '
+__MULTI__' + JSON.stringify({ diasYo, diasElla });
+    
+    // Calcular horas y deuda
+    const totalYo = diasYo.reduce((s, d) => s + (parseFloat(d.horas) || 0), 0);
+    const totalElla = diasElla.reduce((s, d) => s + (parseFloat(d.horas) || 0), 0);
+    if (Math.abs(totalYo - totalElla) > 0.01) {
+      solicitud.horas_cambio = Math.abs(totalYo - totalElla);
     }
-
-    // Validar que ella no tiene turno del mismo tipo el día que me devuelve
-    const { data: suCeldaFechaA } = await sb.from('cuadrante')
-      .select('codigo_turno, incidencia')
-      .eq('trabajadora_id', contraparte)
-      .eq('fecha', fechaA)
-      .neq('es_doblaje', true)
-      .limit(1)
-      .single();
-
-    const suTurnoEnFechaA = suCeldaFechaA?.codigo_turno || suCeldaFechaA?.incidencia || '';
-    if (esTurnoReal(suTurnoEnFechaA) && tipoTurno(suTurnoEnFechaA) === tipoTurno(turnoA2)) {
-      alert(`⚠️ Tu compañera ya tiene turno (${suTurnoEnFechaA}) el ${fechaA}. No puede hacer dos turnos del mismo tipo a la vez.`);
-      return;
-    }
-
-    solicitud.fecha_desde_b = fechaB;
   }
 
   if (tipoCambioActual === 'parcial') {
