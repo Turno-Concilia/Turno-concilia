@@ -918,6 +918,11 @@ async function renderCuadrante() {
       const esModificado = celda && celda.modificado;
       if (cod) html += `<span class="turno-pill ${cls}${esModificado?' turno-modificado':''}" style="${esCoordActual?'cursor:pointer':''}" title="${esModificado?'Turno modificado':''}"${onclickEdit}>${label}</span>`;
       else if (esCoordActual) html += `<span class="turno-pill t-L" style="cursor:pointer;opacity:0.4"${onclickEdit}>+</span>`;
+      // Mostrar píldora de doblaje si existe
+      if (celda && celda.doblaje) {
+        const dCls = claseColor(celda.doblaje.cod);
+        html += `<span class="turno-pill t-doblaje" style="display:block;margin-top:2px" title="Doblaje">+${celda.doblaje.cod}</span>`;
+      }
       html += '</td>';
     }
     html += '</tr>';
