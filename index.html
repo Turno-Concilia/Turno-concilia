@@ -1555,48 +1555,50 @@ let diasEllaMeHace = []; // [{fecha, turno, horas}]
 function renderDiasYoLeHago() {
   const container = document.getElementById('dias-yo-le-hago');
   if (!container) return;
-  container.innerHTML = diasYoLeHago.map((d, i) => `
-    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:end;margin-bottom:8px">
-      <div class="form-group" style="margin-bottom:0">
-        <label class="form-label">Su día ${diasYoLeHago.length > 1 ? i+1 : ''}</label>
-        <input type="date" class="form-input" value="${d.fecha}" 
-          onchange="actualizarDiaYoLeHago(${i}, 'fecha', this.value)">
-      </div>
-      <div class="form-group" style="margin-bottom:0">
-        <label class="form-label">Su turno</label>
-        <select class="form-input" onchange="actualizarDiaYoLeHago(${i}, 'turno', this.value)">
-          <option value="">—</option>
-          ${d.opciones ? d.opciones.map(t => `<option value="${t}" ${d.turno===t?'selected':''}>${t}</option>`).join('') : (d.turno ? `<option value="${d.turno}" selected>${d.turno}</option>` : '')}
-        </select>
-      </div>
-      ${diasYoLeHago.length > 1 ? `<button onclick="eliminarDiaYoLeHago(${i})" style="background:none;border:none;color:#C0392B;font-size:18px;cursor:pointer;padding:0 4px;margin-bottom:2px">×</button>` : '<div></div>'}
-    </div>
-    ${d.horas ? `<div style="font-size:10px;color:var(--blue);margin-bottom:6px;margin-top:-4px">⏱ ${d.horas}h</div>` : ''}
-  `).join('');
+  let html = '';
+  diasYoLeHago.forEach((d, i) => {
+    const label = diasYoLeHago.length > 1 ? 'Su día ' + (i+1) : 'Su día';
+    const opciones = d.opciones && d.opciones.length > 0
+      ? d.opciones.map(t => '<option value="' + t + '"' + (d.turno===t?' selected':'') + '>' + t + '</option>').join('')
+      : (d.turno ? '<option value="' + d.turno + '" selected>' + d.turno + '</option>' : '');
+    const btnEliminar = diasYoLeHago.length > 1
+      ? '<button onclick="eliminarDiaYoLeHago(' + i + ')" style="background:none;border:none;color:#C0392B;font-size:18px;cursor:pointer;padding:0 4px;margin-bottom:2px">×</button>'
+      : '<div></div>';
+    const horasLabel = d.horas ? '<div style="font-size:10px;color:var(--blue);margin-bottom:6px;margin-top:-4px">⏱ ' + d.horas + 'h</div>' : '';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:end;margin-bottom:8px">'
+      + '<div class="form-group" style="margin-bottom:0"><label class="form-label">' + label + '</label>'
+      + '<input type="date" class="form-input" value="' + d.fecha + '" onchange="actualizarDiaYoLeHago(' + i + ',&quot;fecha&quot;,this.value)"></div>'
+      + '<div class="form-group" style="margin-bottom:0"><label class="form-label">Su turno</label>'
+      + '<select class="form-input" onchange="actualizarDiaYoLeHago(' + i + ',&quot;turno&quot;,this.value)">'
+      + '<option value="">—</option>' + opciones + '</select></div>'
+      + btnEliminar + '</div>' + horasLabel;
+  });
+  container.innerHTML = html;
   actualizarBalance();
 }
 
 function renderDiasEllaMeHace() {
   const container = document.getElementById('dias-ella-me-hace');
   if (!container) return;
-  container.innerHTML = diasEllaMeHace.map((d, i) => `
-    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:end;margin-bottom:8px">
-      <div class="form-group" style="margin-bottom:0">
-        <label class="form-label">Mi día ${diasEllaMeHace.length > 1 ? i+1 : ''}</label>
-        <input type="date" class="form-input" value="${d.fecha}"
-          onchange="actualizarDiaEllaMeHace(${i}, 'fecha', this.value)">
-      </div>
-      <div class="form-group" style="margin-bottom:0">
-        <label class="form-label">Mi turno</label>
-        <select class="form-input" onchange="actualizarDiaEllaMeHace(${i}, 'turno', this.value)">
-          <option value="">—</option>
-          ${d.opciones ? d.opciones.map(t => `<option value="${t}" ${d.turno===t?'selected':''}>${t}</option>`).join('') : (d.turno ? `<option value="${d.turno}" selected>${d.turno}</option>` : '')}
-        </select>
-      </div>
-      ${diasEllaMeHace.length > 1 ? `<button onclick="eliminarDiaEllaMeHace(${i})" style="background:none;border:none;color:#C0392B;font-size:18px;cursor:pointer;padding:0 4px;margin-bottom:2px">×</button>` : '<div></div>'}
-    </div>
-    ${d.horas ? `<div style="font-size:10px;color:var(--teal-dark);margin-bottom:6px;margin-top:-4px">⏱ ${d.horas}h</div>` : ''}
-  `).join('');
+  let html = '';
+  diasEllaMeHace.forEach((d, i) => {
+    const label = diasEllaMeHace.length > 1 ? 'Mi día ' + (i+1) : 'Mi día';
+    const opciones = d.opciones && d.opciones.length > 0
+      ? d.opciones.map(t => '<option value="' + t + '"' + (d.turno===t?' selected':'') + '>' + t + '</option>').join('')
+      : (d.turno ? '<option value="' + d.turno + '" selected>' + d.turno + '</option>' : '');
+    const btnEliminar = diasEllaMeHace.length > 1
+      ? '<button onclick="eliminarDiaEllaMeHace(' + i + ')" style="background:none;border:none;color:#C0392B;font-size:18px;cursor:pointer;padding:0 4px;margin-bottom:2px">×</button>'
+      : '<div></div>';
+    const horasLabel = d.horas ? '<div style="font-size:10px;color:var(--teal-dark);margin-bottom:6px;margin-top:-4px">⏱ ' + d.horas + 'h</div>' : '';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:end;margin-bottom:8px">'
+      + '<div class="form-group" style="margin-bottom:0"><label class="form-label">' + label + '</label>'
+      + '<input type="date" class="form-input" value="' + d.fecha + '" onchange="actualizarDiaEllaMeHace(' + i + ',&quot;fecha&quot;,this.value)"></div>'
+      + '<div class="form-group" style="margin-bottom:0"><label class="form-label">Mi turno</label>'
+      + '<select class="form-input" onchange="actualizarDiaEllaMeHace(' + i + ',&quot;turno&quot;,this.value)">'
+      + '<option value="">—</option>' + opciones + '</select></div>'
+      + btnEliminar + '</div>' + horasLabel;
+  });
+  container.innerHTML = html;
   actualizarBalance();
 }
 
