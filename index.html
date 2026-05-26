@@ -1645,11 +1645,10 @@ async function actualizarDiaYoLeHago(i, campo, valor) {
         .eq('trabajadora_id', contraparteId)
         .eq('fecha', valor)
         .neq('es_doblaje', true)
-        .limit(1).single();
-      const turno = data?.codigo_turno || data?.incidencia || '';
+        .limit(1);
+      const turno = data?.[0]?.codigo_turno || data?.[0]?.incidencia || '';
       diasYoLeHago[i].turno = turno;
       diasYoLeHago[i].horas = getHorasCodigo(turno);
-      // Cargar opciones de turno del día
       const turnos = await getTurnosDelDia(contraparteId, valor);
       diasYoLeHago[i].opciones = turnos;
     }
@@ -1658,6 +1657,7 @@ async function actualizarDiaYoLeHago(i, campo, valor) {
     diasYoLeHago[i].horas = getHorasCodigo(valor);
   }
   renderDiasYoLeHago();
+  detectarDoblaje();
 }
 
 async function actualizarDiaEllaMeHace(i, campo, valor) {
@@ -1668,8 +1668,8 @@ async function actualizarDiaEllaMeHace(i, campo, valor) {
       .eq('trabajadora_id', currentUser.id)
       .eq('fecha', valor)
       .neq('es_doblaje', true)
-      .limit(1).single();
-    const turno = data?.codigo_turno || data?.incidencia || '';
+      .limit(1);
+    const turno = data?.[0]?.codigo_turno || data?.[0]?.incidencia || '';
     diasEllaMeHace[i].turno = turno;
     diasEllaMeHace[i].horas = getHorasCodigo(turno);
     const turnos = await getTurnosDelDia(currentUser.id, valor);
@@ -1679,6 +1679,7 @@ async function actualizarDiaEllaMeHace(i, campo, valor) {
     diasEllaMeHace[i].horas = getHorasCodigo(valor);
   }
   renderDiasEllaMeHace();
+  detectarDoblaje();
 }
 
 async function getTurnosDelDia(trabId, fecha) {
@@ -1946,6 +1947,7 @@ async function cargarTurnosDia(fecha, selectId, trabajadoraId) {
     .single();
 
   const sel = document.getElementById(selectId);
+  if (!sel) return;
   if (!data) {
     sel.innerHTML = '<option value="">Sin datos ese día</option>';
     return;
@@ -2031,10 +2033,10 @@ function inicializarEventosSolicitudes() {
     }
   });
 
-  document.getElementById('sol-hora-fin').addEventListener('change', calcularHorasParcial);
-  document.getElementById('sol-hora-ini-b2').addEventListener('change', calcularHorasParcial);
-  document.getElementById('sol-hora-fin-b2').addEventListener('change', calcularHorasParcial);
-  document.getElementById('sol-hora-ini-a2').addEventListener('change', calcularHorasParcial);
+  document.getElementById('sol-hora-fin')?.addEventListener('change', calcularHorasParcial);
+  document.getElementById('sol-hora-ini-b2')?.addEventListener('change', calcularHorasParcial);
+  document.getElementById('sol-hora-fin-b2')?.addEventListener('change', calcularHorasParcial);
+  document.getElementById('sol-hora-ini-a2')?.addEventListener('change', calcularHorasParcial);
 
 
 }
