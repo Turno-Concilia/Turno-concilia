@@ -1975,7 +1975,7 @@ async function cargarTurnosDia(fecha, selectId, trabajadoraId) {
 // Cuando cambia la fecha de A, carga su turno
 function inicializarEventosSolicitudes() {
   // sol-fecha-b = su día (el que yo le hago) → carga turno de la compañera
-  document.getElementById('sol-fecha-b').addEventListener('change', e => {
+  document.getElementById('sol-fecha-b')?.addEventListener('change', e => {
     const contraparteId = document.getElementById('sol-contraparte').value;
     if (contraparteId && e.target.value) {
       cargarTurnosDia(e.target.value, 'sol-turno-b', contraparteId);
@@ -1984,7 +1984,7 @@ function inicializarEventosSolicitudes() {
   });
 
   // sol-fecha-ini = mi día (el que ella me devuelve) → carga mi turno
-  document.getElementById('sol-fecha-ini').addEventListener('change', e => {
+  document.getElementById('sol-fecha-ini')?.addEventListener('change', e => {
     if (currentUser && currentUser.id && e.target.value) {
       cargarTurnosDia(e.target.value, 'sol-turno-a', currentUser.id);
     }
@@ -2313,13 +2313,16 @@ async function editarCelda(nick, dia, codActual, labelActual) {
   const incidenciaActiva = incidencias.includes(codActual) ? codActual : '';
 
   // Consultar si hay doblaje existente
-  const { data: celdaDoblaje } = await sb.from('cuadrante')
-    .select('id, codigo_turno')
-    .eq('trabajadora_id', trab.id)
-    .eq('fecha', fecha)
-    .eq('es_doblaje', true)
-    .limit(1).single().catch(() => ({ data: null }));
-  const doblajeActual = celdaDoblaje?.codigo_turno || '';
+  let doblajeActual = '';
+  try {
+    const { data: celdaDoblaje } = await sb.from('cuadrante')
+      .select('id, codigo_turno')
+      .eq('trabajadora_id', trab.id)
+      .eq('fecha', fecha)
+      .eq('es_doblaje', true)
+      .limit(1);
+    doblajeActual = celdaDoblaje?.[0]?.codigo_turno || '';
+  } catch(e) { doblajeActual = ''; }
 
   modal.innerHTML = `
     <div class="modal-sheet">
