@@ -81,10 +81,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .leyenda{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
 .leyenda-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-muted)}
 .leyenda-dot{width:10px;height:10px;border-radius:3px}
-.cuadrante-wrap{overflow-x:auto;border-radius:var(--radius);border:0.5px solid var(--border)}
+.cuadrante-wrap{overflow:auto;border-radius:var(--radius);border:0.5px solid var(--border);max-height:calc(100vh - 180px)}
 .cuadrante-tabla{border-collapse:collapse;font-size:11px;min-width:100%;background:var(--white)}
-.cuadrante-tabla th{background:var(--gray-light);padding:5px 4px;text-align:center;font-weight:600;border-right:0.5px solid var(--border);border-bottom:0.5px solid var(--border);white-space:nowrap;font-size:10px;color:var(--gray)}
-.cuadrante-tabla th.col-nombre{text-align:left;padding-left:10px;min-width:90px;position:sticky;left:0;z-index:2;background:var(--gray-light)}
+.cuadrante-tabla th{background:var(--gray-light);padding:5px 4px;text-align:center;font-weight:600;border-right:0.5px solid var(--border);border-bottom:0.5px solid var(--border);white-space:nowrap;font-size:10px;color:var(--gray);position:sticky;top:0;z-index:2}
+.cuadrante-tabla th.col-nombre{text-align:left;padding-left:10px;min-width:90px;position:sticky;left:0;top:0;z-index:3;background:var(--gray-light)}
 .cuadrante-tabla td{padding:3px 2px;text-align:center;border-right:0.5px solid var(--border);border-bottom:0.5px solid var(--border);min-width:30px}
 .cuadrante-tabla td.nombre-cel{text-align:left;padding-left:10px;font-weight:500;white-space:nowrap;font-size:11px;position:sticky;left:0;background:var(--white);z-index:1}
 .cuadrante-tabla tr:last-child td{border-bottom:none}
@@ -3038,4 +3038,4 @@ async function guardarNuevaPassword() {
 }
 </script>
 </body>
-</html> 
+</html>
