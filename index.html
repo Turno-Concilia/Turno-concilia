@@ -909,18 +909,17 @@ async function renderCuadrante() {
       const label = celda ? celda.turno : '';
       const cls = claseColor(cod);
       const esFest2 = esFestivo(anioActual, mesActual, d);
-      html += `<td class="${esFinde(anioActual,mesActual,d)||esFest2?'col-findes':''} ${esHoy(d)?'col-hoy':''}">`;
       const esPuestoCompartido = currentUser && currentUser.puesto_compartido;
       const esSA = cod === 'SA';
-      const onclick = (esSA && esPuestoCompartido && esMia) ? ` onclick="reclamarDia('${nick}',${d})" title="Reclamar este día"` : '';
       const esCoordActual = currentUser && ['coordinadora','coordinadora_enfermera','superadmin'].includes(currentUser.rol);
-      const onclickEdit = esCoordActual ? ` onclick="editarCelda('${nick}',${d},'${cod}','${label}')"` : (cod === 'SA' && esPuestoCompartido && esMia ? ` onclick="reclamarDia('${nick}',${d})" title="Reclamar este día"` : '');
+      const tdOnclick = esCoordActual ? ` onclick="editarCelda('${nick}',${d},'${cod}','${label}')" style="cursor:pointer"` 
+                      : (esSA && esPuestoCompartido && esMia ? ` onclick="reclamarDia('${nick}',${d})" style="cursor:pointer"` : '');
+      html += `<td class="${esFinde(anioActual,mesActual,d)||esFest2?'col-findes':''} ${esHoy(d)?'col-hoy':''}"${tdOnclick}>`;
       const esModificado = celda && celda.modificado;
-      if (cod) html += `<span class="turno-pill ${cls}${esModificado?' turno-modificado':''}" style="${esCoordActual?'cursor:pointer':''}" title="${esModificado?'Turno modificado':''}"${onclickEdit}>${label}</span>`;
-      else if (esCoordActual) html += `<span class="turno-pill t-L" style="cursor:pointer;opacity:0.4"${onclickEdit}>+</span>`;
+      if (cod) html += `<span class="turno-pill ${cls}${esModificado?' turno-modificado':''}" title="${esModificado?'Turno modificado':''}">${label}</span>`;
+      else if (esCoordActual) html += `<span class="turno-pill t-L" style="opacity:0.4">+</span>`;
       // Mostrar píldora de doblaje si existe
       if (celda && celda.doblaje) {
-        const dCls = claseColor(celda.doblaje.cod);
         html += `<span class="turno-pill t-doblaje" style="display:block;margin-top:2px" title="Doblaje">+${celda.doblaje.cod}</span>`;
       }
       html += '</td>';
@@ -2313,6 +2312,15 @@ async function editarCelda(nick, dia, codActual, labelActual) {
   const turnoActivo = incidencias.includes(codActual) ? '' : (codActual || '');
   const incidenciaActiva = incidencias.includes(codActual) ? codActual : '';
 
+  // Consultar si hay doblaje existente
+  const { data: celdaDoblaje } = await sb.from('cuadrante')
+    .select('id, codigo_turno')
+    .eq('trabajadora_id', trab.id)
+    .eq('fecha', fecha)
+    .eq('es_doblaje', true)
+    .limit(1).single().catch(() => ({ data: null }));
+  const doblajeActual = celdaDoblaje?.codigo_turno || '';
+
   modal.innerHTML = `
     <div class="modal-sheet">
       <div class="modal-title">
@@ -2355,19 +2363,24 @@ async function editarCelda(nick, dia, codActual, labelActual) {
 
       <input type="hidden" id="celda-turno-sel" value="${turnoActivo}">
       <input type="hidden" id="celda-inc-sel" value="${incidenciaActiva}">
-      <input type="hidden" id="celda-doblaje-sel" value="">
+      <input type="hidden" id="celda-doblaje-sel" value="${doblajeActual}">
 
       <!-- DOBLAJE -->
       <div style="margin-bottom:12px">
         <div style="font-size:12px;font-weight:600;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
           <span>Doblaje (turno extra)</span>
-          <button onclick="toggleDoblajeModal()" id="btn-toggle-doblaje" style="font-size:11px;border:1px solid var(--border);background:var(--white);border-radius:var(--radius-sm);padding:3px 8px;cursor:pointer">+ Añadir doblaje</button>
+          <button onclick="toggleDoblajeModal()" id="btn-toggle-doblaje" 
+            style="font-size:11px;border:1px solid var(--border);background:var(--white);border-radius:var(--radius-sm);padding:3px 8px;cursor:pointer;${doblajeActual?'color:#E65100':''}">
+            ${doblajeActual ? '✕ Quitar doblaje' : '+ Añadir doblaje'}
+          </button>
         </div>
-        <div id="doblaje-modal-grid" style="display:none;grid-template-columns:repeat(4,1fr);gap:6px">
+        <div id="doblaje-modal-grid" style="display:${doblajeActual?'grid':'none'};grid-template-columns:repeat(4,1fr);gap:6px">
           ${turnos.map(t => `<button onclick="seleccionarDoblajeModal('${t}')"
             id="btn-doblaje-${t.replace(/-/g,'_')}"
-            style="padding:6px 2px;border:1px solid var(--border);background:var(--white);
-            color:var(--text);border-radius:var(--radius-sm);font-size:11px;font-weight:500;cursor:pointer">${t}</button>`).join('')}
+            style="padding:6px 2px;border:1px solid ${doblajeActual===t?'#E65100':'var(--border)'};
+            background:${doblajeActual===t?'#FFF0E0':'var(--white)'};
+            color:${doblajeActual===t?'#8B2500':'var(--text)'};
+            border-radius:var(--radius-sm);font-size:11px;font-weight:500;cursor:pointer">${t}</button>`).join('')}
         </div>
       </div>
 
