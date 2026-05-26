@@ -1988,7 +1988,7 @@ function inicializarEventosSolicitudes() {
 
   // Al cambiar compañera, recargar su turno
   document.getElementById('sol-contraparte').addEventListener('change', e => {
-    const fechaB = document.getElementById('sol-fecha-b').value;
+    const fechaB = diasYoLeHago[0]?.fecha || '';
     const contraparteId = e.target.value;
     if (contraparteId && fechaB) {
       cargarTurnosDia(fechaB, 'sol-turno-b', contraparteId);
@@ -2043,8 +2043,8 @@ function calcularHorasParcial() {
 
 async function enviarSolicitud() {
   const contraparte = document.getElementById('sol-contraparte').value;
-  const fechaA = document.getElementById('sol-fecha-ini').value;
-  const turnoA = document.getElementById('sol-turno-a').value;
+  const fechaA = diasEllaMeHace[0]?.fecha || '';
+  const turnoA = diasEllaMeHace[0]?.turno || '';
   const motivo = document.getElementById('sol-motivo').value;
 
   if (!contraparte) { alert('Selecciona una compañera.'); return; }
@@ -2060,8 +2060,8 @@ async function enviarSolicitud() {
     fecha_hasta: fechaA,
     motivo: motivo || null,
     estado: 'pendiente',
-    turno_solicitante: document.getElementById('sol-turno-a').value || null,
-    turno_contraparte: document.getElementById('sol-turno-b').value || null,
+    turno_solicitante: diasEllaMeHace[0]?.turno || null,
+    turno_contraparte: diasYoLeHago[0]?.turno || null,
     con_devolucion: tipoCambioActual === 'doblaje' ? 
       (document.getElementById('doblaje-con-devolucion')?.checked || false) : false,
     fecha_devolucion: tipoCambioActual === 'doblaje' && document.getElementById('doblaje-con-devolucion')?.checked ?
@@ -2161,8 +2161,7 @@ function switchSolTab(tab, btn) {
   document.getElementById('sol-permiso').style.display = tab === 'permiso' ? 'block' : 'none';
   if (tab === 'nueva') {
     const hoy = new Date().toISOString().split('T')[0];
-    document.getElementById('sol-fecha-ini').value = hoy;
-    document.getElementById('sol-fecha-b').value = hoy;
+    inicializarDiasMultiples();
     // sol-fecha-ini = mi día → cargo mi turno en sol-turno-a
     if (currentUser && currentUser.id) {
       cargarTurnosDia(hoy, 'sol-turno-a', currentUser.id);
