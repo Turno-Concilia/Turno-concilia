@@ -1386,11 +1386,13 @@ async function aplicarCambioMultiple(sol, diasYo, diasElla) {
   for (const dia of todosLosDias) {
     if (fechasProcesadas.has(dia.fecha)) continue;
 
-    const diaYo = diasYo.find(d => d.fecha === dia.fecha);
-    const diaElla = diasElla.find(d => d.fecha === dia.fecha);
-
+    // miCelda = celda del SOLICITANTE (quien pide el cambio)
+    // suCelda = celda de la CONTRAPARTE (quien acepta)
     const miCelda = await getCelda(sol.solicitante_id, dia.fecha);
     const suCelda = await getCelda(sol.contraparte_id, dia.fecha);
+    console.log('Procesando fecha:', dia.fecha, 
+      'miCelda (solicitante):', miCelda?.codigo_turno || miCelda?.incidencia,
+      'suCelda (contraparte):', suCelda?.codigo_turno || suCelda?.incidencia);
     if (!miCelda || !suCelda) continue;
 
     const miTurno = { codigo_turno: miCelda.codigo_turno, incidencia: miCelda.incidencia };
@@ -1400,7 +1402,7 @@ async function aplicarCambioMultiple(sol, diasYo, diasElla) {
     const esDoblaje = sol.motivo && sol.motivo.includes('|DOBLAJE:' + dia.fecha + '|');
 
     if (esDoblaje) {
-      // DOBLAJE: yo añado su turno como segunda píldora, ella queda con L
+      // DOBLAJE: solicitante añade turno de contraparte como segunda píldora, contraparte queda L
       await sb.from('cuadrante').insert({
         trabajadora_id: sol.solicitante_id,
         fecha: dia.fecha,
@@ -1415,18 +1417,20 @@ async function aplicarCambioMultiple(sol, diasYo, diasElla) {
         modificado_por: currentUser.id, modificado_en: new Date().toISOString()
       }).eq('id', suCelda.id);
     } else {
-      // Intercambio normal: cada una toma el turno de la otra
+      // Intercambio: solicitante toma turno de contraparte, contraparte toma turno de solicitante
+      // miCelda = celda del SOLICITANTE en esta fecha
+      // suCelda = celda de la CONTRAPARTE en esta fecha
       await sb.from('cuadrante').update({
         codigo_turno: suTurno.codigo_turno, incidencia: suTurno.incidencia,
         turno_original: miTurno.codigo_turno || miTurno.incidencia,
         modificado_por: currentUser.id, modificado_en: new Date().toISOString()
-      }).eq('id', miCelda.id);
+      }).eq('id', miCelda.id);  // Solicitante toma turno de contraparte
 
       await sb.from('cuadrante').update({
         codigo_turno: miTurno.codigo_turno, incidencia: miTurno.incidencia,
         turno_original: suTurno.codigo_turno || suTurno.incidencia,
         modificado_por: currentUser.id, modificado_en: new Date().toISOString()
-      }).eq('id', suCelda.id);
+      }).eq('id', suCelda.id);  // Contraparte toma turno de solicitante
     }
 
     fechasProcesadas.add(dia.fecha);
