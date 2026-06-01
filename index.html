@@ -2082,7 +2082,16 @@ async function enviarSolicitud() {
     const diasEllaFechas = diasElla.map(d => d.fecha);
     const fechasDoblaje = esDoblajeChecked ? diasYoFechas.filter(f => diasEllaFechas.includes(f)) : [];
     const doblajeStr = fechasDoblaje.map(f => '|DOBLAJE:' + f + '|').join('');
-    solicitud.motivo = (solicitud.motivo || '') + doblajeStr + '|MULTI|' + JSON.stringify({ diasYo, diasElla });
+    
+    // Si es solo 1 día en cada parte, NO usar MULTI — usar lógica simple
+    if (diasYo.length === 1 && diasElla.length === 1) {
+      solicitud.fecha_desde_b = diasYo[0].fecha;
+      solicitud.fecha_desde = diasElla[0].fecha;
+      // No añadir |MULTI| al motivo
+    } else {
+      // Múltiples días — usar MULTI
+      solicitud.motivo = (solicitud.motivo || '') + '|MULTI|' + JSON.stringify({ diasYo, diasElla });
+    }
     
     // Calcular horas y deuda
     const totalYo = diasYo.reduce((s, d) => s + (parseFloat(d.horas) || 0), 0);
