@@ -1258,6 +1258,34 @@ async function aceptarCambio(solicitudId) {
   renderCuadrante();
 }
 
+async function intercambiarCeldas(trabIdA, trabIdB, fecha) {
+  const getCeldaSimple = async (trabId, fecha) => {
+    const { data } = await sb.from('cuadrante')
+      .select('id, codigo_turno, incidencia')
+      .eq('trabajadora_id', trabId)
+      .eq('fecha', fecha)
+      .neq('es_doblaje', true)
+      .limit(1);
+    return data && data.length > 0 ? data[0] : null;
+  };
+  const celdaA = await getCeldaSimple(trabIdA, fecha);
+  const celdaB = await getCeldaSimple(trabIdB, fecha);
+  if (!celdaA || !celdaB) { console.warn('Celdas no encontradas:', trabIdA, trabIdB, fecha); return false; }
+  const turnoA = { codigo_turno: celdaA.codigo_turno, incidencia: celdaA.incidencia };
+  const turnoB = { codigo_turno: celdaB.codigo_turno, incidencia: celdaB.incidencia };
+  await sb.from('cuadrante').update({
+    codigo_turno: turnoB.codigo_turno, incidencia: turnoB.incidencia,
+    turno_original: turnoA.codigo_turno || turnoA.incidencia,
+    modificado_por: currentUser.id, modificado_en: new Date().toISOString()
+  }).eq('id', celdaA.id);
+  await sb.from('cuadrante').update({
+    codigo_turno: turnoA.codigo_turno, incidencia: turnoA.incidencia,
+    turno_original: turnoB.codigo_turno || turnoB.incidencia,
+    modificado_por: currentUser.id, modificado_en: new Date().toISOString()
+  }).eq('id', celdaB.id);
+  return true;
+}
+
 async function aplicarCambioCompleto(sol) {
   // Detectar si es cambio múltiple
   if (sol.motivo && sol.motivo.includes('|MULTI|')) {
@@ -1301,154 +1329,53 @@ async function aplicarCambioCompleto(sol) {
   const solEnFechaA  = miCeldaEnFechaA;
   const contEnFechaA = suCeldaEnFechaA;
 
-  const turnoDeElla = { codigo_turno: contEnFechaB.codigo_turno, incidencia: contEnFechaB.incidencia };
-  const turnoMio    = { codigo_turno: solEnFechaA.codigo_turno,   incidencia: solEnFechaA.incidencia };
-
-  // Detectar si alguno de los días es L/F/vacío — si es así convertir en devolución con deuda
-  const esLibre = (celda) => !celda.codigo_turno || ['L','F','VAC','AP','P','DH','IT'].includes(celda.incidencia || celda.codigo_turno);
-
-  const ellaEstaLibreEnFechaB = esLibre(contEnFechaB);  // Ella tiene L en su día — yo le cubro sin intercambio
-  const yoEstoyLibreEnFechaA  = esLibre(solEnFechaA);   // Yo tengo L en mi día — ella me cubre sin intercambio
-
-  if (ellaEstaLibreEnFechaB && yoEstoyLibreEnFechaA) {
-    // Ambos libres — no tiene sentido, no hacer nada
-    console.warn('Cambio completo entre dos días libres — ignorado');
-    return;
+  // Intercambio simple usando la funcion base
+  await intercambiarCeldas(sol.solicitante_id, sol.contraparte_id, fechaB);
+  if (fechaA !== fechaB) {
+    await intercambiarCeldas(sol.solicitante_id, sol.contraparte_id, fechaA);
   }
-
-  if (ellaEstaLibreEnFechaB) {
-    // Ella tiene L en su día — yo le hago su turno (que es L, no tiene turno)
-    // En realidad ella me cubre mi día → devolución posterior con deuda
-    // Solo aplicar mi día: ella hace mi turno, yo quedo con L
-    await sb.from('cuadrante').update({ ...turnoMio, modificado_por: currentUser.id, modificado_en: new Date().toISOString() }).eq('id', contEnFechaA.id);
-    await sb.from('cuadrante').update({ codigo_turno: null, incidencia: 'L', modificado_por: currentUser.id, modificado_en: new Date().toISOString() }).eq('id', solEnFechaA.id);
-    // Registrar deuda — yo le debo las horas a ella
-    const horasDeuda = getHorasCodigo(turnoMio.codigo_turno || turnoMio.incidencia);
-    if (horasDeuda > 0) {
-      await sb.from('bolsa_deudas').insert({
-        acreedora_id: sol.contraparte_id,
-        deudora_id: sol.solicitante_id,
-        horas: horasDeuda,
-        fecha_origen: fechaA,
-        solicitud_id: sol.id,
-        estado: 'pendiente'
-      });
-    }
-    return;
-  }
-
-  if (yoEstoyLibreEnFechaA) {
-    // Yo tengo L en mi día — ella no tiene que cubrirme nada
-    // Solo aplicar su día: yo le hago su turno, ella queda con L
-    await sb.from('cuadrante').update({ ...turnoDeElla, modificado_por: currentUser.id, modificado_en: new Date().toISOString() }).eq('id', solEnFechaB.id);
-    await sb.from('cuadrante').update({ codigo_turno: null, incidencia: 'L', modificado_por: currentUser.id, modificado_en: new Date().toISOString() }).eq('id', contEnFechaB.id);
-    // Registrar deuda — ella me debe las horas a mí
-    const horasDeuda = getHorasCodigo(turnoDeElla.codigo_turno || turnoDeElla.incidencia);
-    if (horasDeuda > 0) {
-      await sb.from('bolsa_deudas').insert({
-        acreedora_id: sol.solicitante_id,
-        deudora_id: sol.contraparte_id,
-        horas: horasDeuda,
-        fecha_origen: fechaB,
-        solicitud_id: sol.id,
-        estado: 'pendiente'
-      });
-    }
-    return;
-  }
-
-  // Cambio completo normal — ambos tienen turno real
-  // En fecha_desde_b (su día):
-  await sb.from('cuadrante').update({ ...turnoDeElla, modificado_por: currentUser.id, modificado_en: new Date().toISOString() }).eq('id', solEnFechaB.id);
-  await sb.from('cuadrante').update({ codigo_turno: solEnFechaB.codigo_turno, incidencia: solEnFechaB.incidencia, modificado_por: currentUser.id, modificado_en: new Date().toISOString() }).eq('id', contEnFechaB.id);
-
-  // En fecha_desde (mi día):
-  await sb.from('cuadrante').update({ ...turnoMio, modificado_por: currentUser.id, modificado_en: new Date().toISOString() }).eq('id', contEnFechaA.id);
-  await sb.from('cuadrante').update({ codigo_turno: contEnFechaA.codigo_turno, incidencia: contEnFechaA.incidencia, modificado_por: currentUser.id, modificado_en: new Date().toISOString() }).eq('id', solEnFechaA.id);
 }
 
 async function aplicarCambioMultiple(sol, diasYo, diasElla) {
-  // Aplicar cada par de días
-  async function getCelda(trabId, fecha) {
-    const { data } = await sb.from('cuadrante')
-      .select('id,codigo_turno,incidencia')
-      .eq('trabajadora_id', trabId)
-      .eq('fecha', fecha)
-      .neq('es_doblaje', true)
-      .limit(1);
-    return data && data.length > 0 ? data[0] : null;
-  }
-
-  // Aplicar todos los días — intercambio normal en cada par
-  const todosLosDias = [...diasYo, ...diasElla];
-  const fechasProcesadas = new Set();
-
-  for (const dia of todosLosDias) {
-    if (fechasProcesadas.has(dia.fecha)) continue;
-
-    // miCelda = celda del SOLICITANTE (quien pide el cambio)
-    // suCelda = celda de la CONTRAPARTE (quien acepta)
-    const miCelda = await getCelda(sol.solicitante_id, dia.fecha);
-    const suCelda = await getCelda(sol.contraparte_id, dia.fecha);
-    console.log('Procesando fecha:', dia.fecha, 
-      'miCelda (solicitante):', miCelda?.codigo_turno || miCelda?.incidencia,
-      'suCelda (contraparte):', suCelda?.codigo_turno || suCelda?.incidencia);
-    if (!miCelda || !suCelda) continue;
-
-    const miTurno = { codigo_turno: miCelda.codigo_turno, incidencia: miCelda.incidencia };
-    const suTurno = { codigo_turno: suCelda.codigo_turno, incidencia: suCelda.incidencia };
-
-    // Detectar si es doblaje (mismo día en ambos lados y checkbox marcado)
-    const esDoblaje = sol.motivo && sol.motivo.includes('|DOBLAJE:' + dia.fecha + '|');
-
+  const todasFechas = new Set([
+    ...diasYo.map(function(d) { return d.fecha; }),
+    ...diasElla.map(function(d) { return d.fecha; })
+  ]);
+  for (const fecha of todasFechas) {
+    const esDoblaje = sol.motivo && sol.motivo.includes('|DOBLAJE:' + fecha + '|');
     if (esDoblaje) {
-      // DOBLAJE: solicitante añade turno de contraparte como segunda píldora, contraparte queda L
-      await sb.from('cuadrante').insert({
-        trabajadora_id: sol.solicitante_id,
-        fecha: dia.fecha,
-        codigo_turno: suTurno.codigo_turno,
-        incidencia: null,
-        es_doblaje: true,
-        es_servicio_min: false
-      });
-      await sb.from('cuadrante').update({
-        codigo_turno: null, incidencia: 'L',
-        turno_original: suTurno.codigo_turno || suTurno.incidencia,
-        modificado_por: currentUser.id, modificado_en: new Date().toISOString()
-      }).eq('id', suCelda.id);
+      const { data } = await sb.from('cuadrante')
+        .select('id, codigo_turno, incidencia')
+        .eq('trabajadora_id', sol.contraparte_id)
+        .eq('fecha', fecha)
+        .neq('es_doblaje', true)
+        .limit(1);
+      const suCelda = data && data.length > 0 ? data[0] : null;
+      if (suCelda) {
+        await sb.from('cuadrante').insert({
+          trabajadora_id: sol.solicitante_id, fecha,
+          codigo_turno: suCelda.codigo_turno, incidencia: null,
+          es_doblaje: true, es_servicio_min: false
+        });
+        await sb.from('cuadrante').update({
+          codigo_turno: null, incidencia: 'L',
+          modificado_por: currentUser.id, modificado_en: new Date().toISOString()
+        }).eq('id', suCelda.id);
+      }
     } else {
-      // Intercambio: solicitante toma turno de contraparte, contraparte toma turno de solicitante
-      // miCelda = celda del SOLICITANTE en esta fecha
-      // suCelda = celda de la CONTRAPARTE en esta fecha
-      await sb.from('cuadrante').update({
-        codigo_turno: suTurno.codigo_turno, incidencia: suTurno.incidencia,
-        turno_original: miTurno.codigo_turno || miTurno.incidencia,
-        modificado_por: currentUser.id, modificado_en: new Date().toISOString()
-      }).eq('id', miCelda.id);  // Solicitante toma turno de contraparte
-
-      await sb.from('cuadrante').update({
-        codigo_turno: miTurno.codigo_turno, incidencia: miTurno.incidencia,
-        turno_original: suTurno.codigo_turno || suTurno.incidencia,
-        modificado_por: currentUser.id, modificado_en: new Date().toISOString()
-      }).eq('id', suCelda.id);  // Contraparte toma turno de solicitante
+      await intercambiarCeldas(sol.solicitante_id, sol.contraparte_id, fecha);
     }
-
-    fechasProcesadas.add(dia.fecha);
   }
-
-  // Calcular deuda si hay diferencia de horas
-  const totalYo = diasYo.reduce((s, d) => s + (parseFloat(d.horas) || 0), 0);
-  const totalElla = diasElla.reduce((s, d) => s + (parseFloat(d.horas) || 0), 0);
+  const totalYo = diasYo.reduce(function(s, d) { return s + (parseFloat(d.horas) || 0); }, 0);
+  const totalElla = diasElla.reduce(function(s, d) { return s + (parseFloat(d.horas) || 0); }, 0);
   const diff = totalYo - totalElla;
-  
   if (Math.abs(diff) > 0.01) {
     await sb.from('bolsa_deudas').insert({
       acreedora_id: diff > 0 ? sol.solicitante_id : sol.contraparte_id,
       deudora_id: diff > 0 ? sol.contraparte_id : sol.solicitante_id,
       horas: Math.abs(diff),
-      fecha_origen: diasYo[0]?.fecha || sol.fecha_desde_b,
-      solicitud_id: sol.id,
-      estado: 'pendiente'
+      fecha_origen: diasYo[0] ? diasYo[0].fecha : sol.fecha_desde_b,
+      solicitud_id: sol.id, estado: 'pendiente'
     });
   }
 }
