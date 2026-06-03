@@ -438,25 +438,35 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           </select>
         </div>
 
-        <!-- YO LE HAGO: múltiples días -->
+        <!-- YO LE HAGO: su día -->
         <div style="background:var(--blue-light);border-radius:var(--radius);padding:12px;margin-bottom:10px">
           <div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:8px">Yo le hago...</div>
-          <div id="dias-yo-le-hago"></div>
-          <button type="button" onclick="añadirDiaYoLeHago()" 
-            style="width:100%;padding:6px;border:1px dashed var(--blue);background:transparent;color:var(--blue);border-radius:var(--radius-sm);font-size:12px;cursor:pointer;margin-top:6px">
-            + Añadir día
-          </button>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label">Su día</label>
+              <input type="date" class="form-input" id="sol-fecha-b" onchange="onFechaBChange()">
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label">Su turno</label>
+              <div id="sol-turno-b-display" style="font-size:13px;font-weight:600;color:var(--blue);padding:8px 0"></div>
+            </div>
+          </div>
           <div id="campos-parcial" style="display:none"></div>
         </div>
 
-        <!-- ELLA ME DEVUELVE: múltiples días -->
+        <!-- ELLA ME DEVUELVE: mi día -->
         <div id="campos-b" style="background:var(--teal-light);border-radius:var(--radius);padding:12px;margin-bottom:10px">
           <div style="font-size:12px;font-weight:600;color:var(--teal-dark);margin-bottom:8px" id="label-campos-b">Ella me devuelve...</div>
-          <div id="dias-ella-me-hace"></div>
-          <button type="button" onclick="añadirDiaEllaMeHace()"
-            style="width:100%;padding:6px;border:1px dashed var(--teal-dark);background:transparent;color:var(--teal-dark);border-radius:var(--radius-sm);font-size:12px;cursor:pointer;margin-top:6px">
-            + Añadir día
-          </button>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label">Mi día</label>
+              <input type="date" class="form-input" id="sol-fecha-ini" onchange="onFechaAChange()">
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label">Mi turno</label>
+              <div id="sol-turno-a-display" style="font-size:13px;font-weight:600;color:var(--teal-dark);padding:8px 0"></div>
+            </div>
+          </div>
           <div id="campos-parcial-b" style="display:none">
             <div id="horario-turno-a" style="font-size:11px;color:var(--teal-dark);margin-bottom:6px;font-style:italic"></div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -1187,9 +1197,12 @@ async function renderSolicitudes() {
   }
   document.getElementById('sol-pendientes').innerHTML = `<div class="card">${html}</div>`;
 
-  // MIS CAMBIOS: solicitudes que yo he enviado
-  const mias = (data||[]).filter(s => s.solicitante_id === currentUser.id);
-  let miHtml = mias.length === 0 ? '<div class="empty-state">No has enviado solicitudes</div>' : '<div class="card">';
+  // MIS CAMBIOS: solicitudes donde participo (como solicitante o como contraparte) y están aplicadas
+  const mias = (data||[]).filter(s => 
+    (s.solicitante_id === currentUser.id || s.contraparte_id === currentUser.id) &&
+    s.estado === 'aprobada'
+  );
+  let miHtml = mias.length === 0 ? '<div class="empty-state">Sin cambios aplicados</div>' : '<div class="card">';
   mias.forEach(s => {
     const tipoCambioLabel = {
       completo: '↔ Cambio completo',
@@ -1695,6 +1708,41 @@ function inicializarDiasMultiples() {
   renderDiasEllaMeHace();
 }
 
+// Handlers simples para cambio completo
+let turnoFechaB = ''; // turno de ella en su día
+let turnoFechaA = ''; // mi turno en mi día
+
+async function onFechaBChange() {
+  const fecha = document.getElementById('sol-fecha-b').value;
+  const contraparteId = document.getElementById('sol-contraparte').value;
+  if (!fecha || !contraparteId) return;
+  const { data } = await sb.from('cuadrante')
+    .select('codigo_turno, incidencia')
+    .eq('trabajadora_id', contraparteId)
+    .eq('fecha', fecha)
+    .neq('es_doblaje', true)
+    .limit(1);
+  turnoFechaB = data?.[0]?.codigo_turno || data?.[0]?.incidencia || '';
+  const display = document.getElementById('sol-turno-b-display');
+  if (display) display.textContent = turnoFechaB || 'Sin turno ese día';
+  await detectarDoblaje();
+}
+
+async function onFechaAChange() {
+  const fecha = document.getElementById('sol-fecha-ini').value;
+  if (!fecha) return;
+  const { data } = await sb.from('cuadrante')
+    .select('codigo_turno, incidencia')
+    .eq('trabajadora_id', currentUser.id)
+    .eq('fecha', fecha)
+    .neq('es_doblaje', true)
+    .limit(1);
+  turnoFechaA = data?.[0]?.codigo_turno || data?.[0]?.incidencia || '';
+  const display = document.getElementById('sol-turno-a-display');
+  if (display) display.textContent = turnoFechaA || 'Sin turno ese día';
+  await detectarDoblaje();
+}
+
 function toggleDoblajeDevolucion() {
   const checked = document.getElementById('doblaje-con-devolucion').checked;
   document.getElementById('doblaje-devolucion-campos').style.display = checked ? 'block' : 'none';
@@ -2055,50 +2103,14 @@ async function enviarSolicitud() {
   };
 
   if (tipoCambioActual === 'completo') {
-    // Validar que hay al menos un día en cada parte
-    const diasYo = diasYoLeHago.filter(d => d.fecha && d.turno);
-    const diasElla = diasEllaMeHace.filter(d => d.fecha && d.turno);
-    
-    if (diasYo.length === 0) { alert('Indica al menos un día que tú le haces.'); return; }
-    if (diasElla.length === 0) { alert('Indica al menos un día que ella te hace.'); return; }
-
-    // Validar incompatibilidades de turno del mismo tipo el mismo día
-    const esTurnoReal = (t) => t && !['L','F','AP','VAC','P','DH','IT','SA',''].includes(t);
-    const tipoTurno = (t) => {
-      if (!t) return null;
-      if (t.startsWith('M') || t.startsWith('CD')) return 'M';
-      if (t.startsWith('T') || t.startsWith('TC') || t.startsWith('CT')) return 'T';
-      if (t === 'N' || t === 'N1') return 'N';
-      return null;
-    };
-
-    // Para cambio múltiple, guardar todos los días como JSON en motivo
-    solicitud.fecha_desde_b = diasYo[0].fecha;
-    solicitud.fecha_desde = diasElla[0].fecha;
-    // Detectar días marcados como doblaje
-    const chkDoblaje = document.getElementById('chk-doblaje');
-    const esDoblajeChecked = chkDoblaje && chkDoblaje.checked;
-    const diasYoFechas = diasYo.map(d => d.fecha);
-    const diasEllaFechas = diasElla.map(d => d.fecha);
-    const fechasDoblaje = esDoblajeChecked ? diasYoFechas.filter(f => diasEllaFechas.includes(f)) : [];
-    const doblajeStr = fechasDoblaje.map(f => '|DOBLAJE:' + f + '|').join('');
-    
-    // Si es solo 1 día en cada parte, NO usar MULTI — usar lógica simple
-    if (diasYo.length === 1 && diasElla.length === 1) {
-      solicitud.fecha_desde_b = diasYo[0].fecha;
-      solicitud.fecha_desde = diasElla[0].fecha;
-      // No añadir |MULTI| al motivo
-    } else {
-      // Múltiples días — usar MULTI
-      solicitud.motivo = (solicitud.motivo || '') + '|MULTI|' + JSON.stringify({ diasYo, diasElla });
-    }
-    
-    // Calcular horas y deuda
-    const totalYo = diasYo.reduce((s, d) => s + (parseFloat(d.horas) || 0), 0);
-    const totalElla = diasElla.reduce((s, d) => s + (parseFloat(d.horas) || 0), 0);
-    if (Math.abs(totalYo - totalElla) > 0.01) {
-      solicitud.horas_cambio = Math.abs(totalYo - totalElla);
-    }
+    const fechaB = document.getElementById('sol-fecha-b') ? document.getElementById('sol-fecha-b').value : '';
+    const fechaA = document.getElementById('sol-fecha-ini') ? document.getElementById('sol-fecha-ini').value : '';
+    if (!fechaB) { alert('Indica el día de tu compañera.'); return; }
+    if (!fechaA) { alert('Indica tu día.'); return; }
+    solicitud.fecha_desde_b = fechaB;
+    solicitud.fecha_desde = fechaA;
+    solicitud.turno_contraparte = turnoFechaB || null;
+    solicitud.turno_solicitante = turnoFechaA || null;
   }
 
   if (tipoCambioActual === 'parcial') {
