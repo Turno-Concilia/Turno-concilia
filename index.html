@@ -2127,14 +2127,25 @@ async function enviarSolicitud() {
   };
 
   if (tipoCambioActual === 'completo') {
-    const fechaB = document.getElementById('sol-fecha-b') ? document.getElementById('sol-fecha-b').value : '';
-    const fechaA = document.getElementById('sol-fecha-ini') ? document.getElementById('sol-fecha-ini').value : '';
-    if (!fechaB) { alert('Indica el día de tu compañera.'); return; }
-    if (!fechaA) { alert('Indica tu día.'); return; }
-    solicitud.fecha_desde_b = fechaB;
-    solicitud.fecha_desde = fechaA;
-    solicitud.turno_contraparte = turnoFechaB || null;
-    solicitud.turno_solicitante = turnoFechaA || null;
+    const diasYo = diasYoLeHago.filter(d => d.fecha && d.turno);
+    const diasElla = diasEllaMeHace.filter(d => d.fecha && d.turno);
+    if (diasYo.length === 0) { alert('Indica el día de tu compañera.'); return; }
+    if (diasElla.length === 0) { alert('Selecciona tu fecha.'); return; }
+
+    if (diasYo.length === 1 && diasElla.length === 1) {
+      // Cambio simple — sin MULTI
+      solicitud.fecha_desde_b = diasYo[0].fecha;
+      solicitud.fecha_desde = diasElla[0].fecha;
+      solicitud.turno_contraparte = diasYo[0].turno || null;
+      solicitud.turno_solicitante = diasElla[0].turno || null;
+    } else {
+      // Múltiples días — usar MULTI
+      solicitud.fecha_desde_b = diasYo[0].fecha;
+      solicitud.fecha_desde = diasElla[0].fecha;
+      solicitud.turno_contraparte = diasYo[0].turno || null;
+      solicitud.turno_solicitante = diasElla[0].turno || null;
+      solicitud.motivo = (solicitud.motivo || '') + '|MULTI|' + JSON.stringify({ diasYo, diasElla });
+    }
   }
 
   if (tipoCambioActual === 'parcial') {
