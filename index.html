@@ -1522,13 +1522,21 @@ function renderDiasYoLeHago() {
     const horasLabel = d.horas ? '<div style="font-size:10px;color:var(--blue);margin-bottom:6px;margin-top:-4px">⏱ ' + d.horas + 'h</div>' : '';
     html += '<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:end;margin-bottom:8px">'
       + '<div class="form-group" style="margin-bottom:0"><label class="form-label">' + label + '</label>'
-      + '<input type="date" class="form-input" value="' + d.fecha + '" data-idx="' + i + '" data-tipo="yo" onchange="onChangeDiaFecha(this)"></div>'
+      + '<input type="date" class="form-input" value="' + d.fecha + '" data-idx="' + i + '" data-tipo="yo" onchange="onChangeDiaFecha(this)" oninput="onChangeDiaFecha(this)"></div>'
       + '<div class="form-group" style="margin-bottom:0"><label class="form-label">Su turno</label>'
       + '<select class="form-input" data-idx="' + i + '" data-tipo="yo" onchange="onChangeDiaTurno(this)">'
       + '<option value="">—</option>' + opciones + '</select></div>'
       + btnEliminar + '</div>' + horasLabel;
   });
   container.innerHTML = html;
+  // Attach events via addEventListener for better compatibility
+  container.querySelectorAll('input[type="date"]').forEach(el => {
+    el.addEventListener('change', () => onChangeDiaFecha(el));
+    el.addEventListener('input', () => onChangeDiaFecha(el));
+  });
+  container.querySelectorAll('select').forEach(el => {
+    el.addEventListener('change', () => onChangeDiaTurno(el));
+  });
   detectarDoblaje();
   actualizarBalance();
 }
@@ -1548,7 +1556,7 @@ function renderDiasEllaMeHace() {
     const horasLabel = d.horas ? '<div style="font-size:10px;color:var(--teal-dark);margin-bottom:6px;margin-top:-4px">⏱ ' + d.horas + 'h</div>' : '';
     html += '<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:end;margin-bottom:8px">'
       + '<div class="form-group" style="margin-bottom:0"><label class="form-label">' + label + '</label>'
-      + '<input type="date" class="form-input" value="' + d.fecha + '" data-idx="' + i + '" data-tipo="ella" onchange="onChangeDiaFecha(this)"></div>'
+      + '<input type="date" class="form-input" value="' + d.fecha + '" data-idx="' + i + '" data-tipo="ella" onchange="onChangeDiaFecha(this)" oninput="onChangeDiaFecha(this)"></div>'
       + '<div class="form-group" style="margin-bottom:0"><label class="form-label">Mi turno</label>'
       + '<select class="form-input" data-idx="' + i + '" data-tipo="ella" onchange="onChangeDiaTurno(this)">'
       + '<option value="">—</option>' + opciones + '</select></div>'
