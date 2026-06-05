@@ -1522,9 +1522,9 @@ function renderDiasYoLeHago() {
     const horasLabel = d.horas ? '<div style="font-size:10px;color:var(--blue);margin-bottom:6px;margin-top:-4px">⏱ ' + d.horas + 'h</div>' : '';
     html += '<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:end;margin-bottom:8px">'
       + '<div class="form-group" style="margin-bottom:0"><label class="form-label">' + label + '</label>'
-      + '<input type="date" class="form-input" value="' + d.fecha + '" onchange="actualizarDiaYoLeHago(' + i + ',&quot;fecha&quot;,this.value)"></div>'
+      + '<input type="date" class="form-input" value="' + d.fecha + '" onchange="actualizarDiaYoLeHago(' + i + ',\'fecha\',this.value)"></div>'
       + '<div class="form-group" style="margin-bottom:0"><label class="form-label">Su turno</label>'
-      + '<select class="form-input" onchange="actualizarDiaYoLeHago(' + i + ',&quot;turno&quot;,this.value)">'
+      + '<select class="form-input" onchange="actualizarDiaYoLeHago(' + i + ',\'turno\',this.value)">'
       + '<option value="">—</option>' + opciones + '</select></div>'
       + btnEliminar + '</div>' + horasLabel;
   });
@@ -1548,9 +1548,9 @@ function renderDiasEllaMeHace() {
     const horasLabel = d.horas ? '<div style="font-size:10px;color:var(--teal-dark);margin-bottom:6px;margin-top:-4px">⏱ ' + d.horas + 'h</div>' : '';
     html += '<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:end;margin-bottom:8px">'
       + '<div class="form-group" style="margin-bottom:0"><label class="form-label">' + label + '</label>'
-      + '<input type="date" class="form-input" value="' + d.fecha + '" onchange="actualizarDiaEllaMeHace(' + i + ',&quot;fecha&quot;,this.value)"></div>'
+      + '<input type="date" class="form-input" value="' + d.fecha + '" onchange="actualizarDiaEllaMeHace(' + i + ',\'fecha\',this.value)"></div>'
       + '<div class="form-group" style="margin-bottom:0"><label class="form-label">Mi turno</label>'
-      + '<select class="form-input" onchange="actualizarDiaEllaMeHace(' + i + ',&quot;turno&quot;,this.value)">'
+      + '<select class="form-input" onchange="actualizarDiaEllaMeHace(' + i + ',\'turno\',this.value)">'
       + '<option value="">—</option>' + opciones + '</select></div>'
       + btnEliminar + '</div>' + horasLabel;
   });
