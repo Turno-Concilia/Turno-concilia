@@ -1242,21 +1242,45 @@ async function aceptarCambio(solicitudId) {
   const { data: sol } = await sb.from('solicitudes').select('*').eq('id', solicitudId).single();
   if (!sol) return;
 
-  // Todos los cambios se aplican cuando la contraparte acepta
-  await sb.from('solicitudes').update({
-    estado: 'aprobada',
-    resuelta_por: currentUser.id,
-    resuelta_en: new Date().toISOString()
-  }).eq('id', solicitudId);
+  try {
+    if (sol.tipo_cambio === 'completo') {
+      // Usar Edge Function con service role para garantizar permisos
+      const { data: sessionData } = await sb.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      
+      const resp = await fetch('https://apcidgsjefltilrzegof.supabase.co/functions/v1/aplicar-cambio', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify({ solicitudId, usuarioId: currentUser.id })
+      });
+      
+      const result = await resp.json();
+      if (!resp.ok || result.error) {
+        throw new Error(result.error || 'Error en el servidor');
+      }
+    } else {
+      // Otros tipos: aplicar localmente y marcar como aprobada
+      await sb.from('solicitudes').update({
+        estado: 'aprobada',
+        resuelta_por: currentUser.id,
+        resuelta_en: new Date().toISOString()
+      }).eq('id', solicitudId);
 
-  if (sol.tipo_cambio === 'completo') {
-    await aplicarCambioCompleto(sol);
-  } else if (sol.tipo_cambio === 'devolucion') {
-    await aplicarCambioDevolucion(sol);
-  } else if (sol.tipo_cambio === 'parcial') {
-    await aplicarCambioParcial(sol);
-  } else if (sol.tipo_cambio === 'doblaje') {
-    await aplicarCambioDoblaje(sol);
+      if (sol.tipo_cambio === 'devolucion') {
+        await aplicarCambioDevolucion(sol);
+      } else if (sol.tipo_cambio === 'parcial') {
+        await aplicarCambioParcial(sol);
+      } else if (sol.tipo_cambio === 'doblaje') {
+        await aplicarCambioDoblaje(sol);
+      }
+    }
+  } catch(err) {
+    console.error('Error al aplicar cambio:', err);
+    alert('⚠️ Error al aplicar el cambio: ' + err.message);
+    return;
   }
 
   // Notificar al solicitante
@@ -1284,7 +1308,11 @@ async function intercambiarCeldas(trabIdA, trabIdB, fecha) {
   };
   const celdaA = await getCeldaSimple(trabIdA, fecha);
   const celdaB = await getCeldaSimple(trabIdB, fecha);
-  if (!celdaA || !celdaB) { console.warn('Celdas no encontradas:', trabIdA, trabIdB, fecha); return false; }
+  console.log('intercambiarCeldas', fecha, 'A:', celdaA?.codigo_turno || celdaA?.incidencia, 'B:', celdaB?.codigo_turno || celdaB?.incidencia);
+  if (!celdaA || !celdaB) { 
+    console.error('Celdas no encontradas:', trabIdA, trabIdB, fecha);
+    throw new Error('No se encontraron las celdas para la fecha ' + fecha);
+  }
   const turnoA = { codigo_turno: celdaA.codigo_turno, incidencia: celdaA.incidencia };
   const turnoB = { codigo_turno: celdaB.codigo_turno, incidencia: celdaB.incidencia };
   await sb.from('cuadrante').update({
