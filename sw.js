@@ -1,16 +1,12 @@
-// Mi Turno Concilia — Service Worker v4
-const CACHE_NAME = 'miturno-v4';
+// Mi Turno Concilia — Service Worker
+const CACHE_NAME = 'miturno-v1';
 
 self.addEventListener('install', e => {
   self.skipWaiting();
 });
 
 self.addEventListener('activate', e => {
-  e.waitUntil(
-    caches.keys().then(keys => 
-      Promise.all(keys.map(k => caches.delete(k)))
-    ).then(() => clients.claim())
-  );
+  e.waitUntil(clients.claim());
 });
 
 // Recibir notificación push
