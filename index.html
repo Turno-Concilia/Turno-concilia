@@ -440,33 +440,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
         <!-- YO LE HAGO: su día -->
         <div style="background:var(--blue-light);border-radius:var(--radius);padding:12px;margin-bottom:10px">
-          <div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:8px">Yo le hago...</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="form-group" style="margin-bottom:0">
-              <label class="form-label">Su día</label>
-              <input type="date" class="form-input" id="sol-fecha-b" onchange="onFechaBChange()">
-            </div>
-            <div class="form-group" style="margin-bottom:0">
-              <label class="form-label">Su turno</label>
-              <div id="sol-turno-b-display" style="font-size:13px;font-weight:600;color:var(--blue);padding:8px 0"></div>
-            </div>
-          </div>
+          <div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:8px">Yo le hago...
+          <div id="dias-yo-le-hago"></div>
+          <button type="button" onclick="añadirDiaYoLeHago()"
+            style="width:100%;padding:6px;border:1px dashed var(--blue);background:transparent;color:var(--blue);border-radius:var(--radius-sm);font-size:12px;cursor:pointer;margin-top:4px">
+            + Añadir día
+          </button>
           <div id="campos-parcial" style="display:none"></div>
         </div>
 
-        <!-- ELLA ME DEVUELVE: mi día -->
+        <!-- ELLA ME DEVUELVE -->
         <div id="campos-b" style="background:var(--teal-light);border-radius:var(--radius);padding:12px;margin-bottom:10px">
-          <div style="font-size:12px;font-weight:600;color:var(--teal-dark);margin-bottom:8px" id="label-campos-b">Ella me devuelve...</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="form-group" style="margin-bottom:0">
-              <label class="form-label">Mi día</label>
-              <input type="date" class="form-input" id="sol-fecha-ini" onchange="onFechaAChange()">
-            </div>
-            <div class="form-group" style="margin-bottom:0">
-              <label class="form-label">Mi turno</label>
-              <div id="sol-turno-a-display" style="font-size:13px;font-weight:600;color:var(--teal-dark);padding:8px 0"></div>
-            </div>
-          </div>
+          <div style="font-size:12px;font-weight:600;color:var(--teal-dark);margin-bottom:8px" id="label-campos-b">Ella me devuelve...
+          <div id="dias-ella-me-hace"></div>
+          <button type="button" onclick="añadirDiaEllaMeHace()"
+            style="width:100%;padding:6px;border:1px dashed var(--teal-dark);background:transparent;color:var(--teal-dark);border-radius:var(--radius-sm);font-size:12px;cursor:pointer;margin-top:4px">
+            + Añadir día
+          </button>
           <div id="campos-parcial-b" style="display:none">
             <div id="horario-turno-a" style="font-size:11px;color:var(--teal-dark);margin-bottom:6px;font-style:italic"></div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -482,10 +472,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           </div>
         </div>
 
-        <!-- Resumen horas -->
+        <!-- Aviso doblaje -->
+        <div id="aviso-doblaje" style="display:none;background:#FFF0E0;border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:10px;border-left:3px solid #E65100"></div>
+
+        <!-- Balance de horas -->
+        <div id="balance-horas" style="display:none;background:var(--gray-light);border-radius:var(--radius-sm);padding:10px 12px;font-size:12px;margin-bottom:12px">
+          <div style="font-weight:600;margin-bottom:4px">Balance de horas</div>
+          <div id="balance-yo" style="color:var(--blue)"></div>
+          <div id="balance-ella" style="color:var(--teal-dark)"></div>
+          <div id="balance-deuda" style="font-weight:600;margin-top:4px"></div>
+        </div>
+
+        <!-- Resumen horas parcial -->
         <div id="horas-calculo" style="border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;margin-bottom:10px;display:none"></div>
 
-                <div class="form-group">
+        <div class="form-group">
           <label class="form-label">Motivo (opcional)</label>
           <input type="text" class="form-input" id="sol-motivo" placeholder="Describe el motivo si lo deseas">
         </div>
