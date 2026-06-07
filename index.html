@@ -1844,42 +1844,25 @@ async function aplicarCambioParcial(sol) {
 }
 
 async function aprobarPermiso(solicitudId) {
-  const { data: sol } = await sb.from('solicitudes').select('*').eq('id', solicitudId).single();
-  if (!sol) return;
-
-  // Marcar como aprobada
-  await sb.from('solicitudes').update({
-    estado: 'aprobada',
-    resuelta_por: currentUser.id,
-    resuelta_en: new Date().toISOString()
-  }).eq('id', solicitudId);
-
-  // Aplicar en el cuadrante — todos los días entre fecha_desde y fecha_hasta
-  const fechaIni = new Date(sol.fecha_desde);
-  const fechaFin = new Date(sol.fecha_hasta || sol.fecha_desde_b || sol.fecha_desde);
-  const tipo = sol.tipo_cambio; // AP, VAC, P, DH, etc.
-
-  let fecha = new Date(fechaIni);
-  let errores = 0;
-  while (fecha <= fechaFin) {
-    const fechaStr = fecha.toISOString().split('T')[0];
-    const { error } = await sb.from('cuadrante').update({
-      codigo_turno: null,
-      incidencia: tipo,
-      turno_original: null,
-      modificado_por: currentUser.id,
-      modificado_en: new Date().toISOString()
-    }).eq('trabajadora_id', sol.solicitante_id).eq('fecha', fechaStr).neq('es_doblaje', true);
-    if (error) errores++;
-    fecha.setDate(fecha.getDate() + 1);
-  }
-
-  if (errores > 0) {
-    alert('✓ Permiso aprobado, pero algunos días no se pudieron marcar automáticamente.');
-  } else {
+  try {
+    const { data: sessionData } = await sb.auth.getSession();
+    const token = sessionData?.session?.access_token;
+    const resp = await fetch('https://apcidgsjefltilrzegof.supabase.co/functions/v1/aplicar-cambio', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token
+      },
+      body: JSON.stringify({ solicitudId, usuarioId: currentUser.id })
+    });
+    const result = await resp.json();
+    if (!resp.ok || result.error) throw new Error(result.error || 'Error en el servidor');
     alert('✓ Permiso aprobado y marcado en el cuadrante.');
+    renderSolicitudes();
+    renderCuadrante();
+  } catch(err) {
+    alert('⚠️ Error al aprobar: ' + err.message);
   }
-  renderSolicitudes();
 }
 
 async function enviarPermiso() {
