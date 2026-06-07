@@ -1844,12 +1844,41 @@ async function aplicarCambioParcial(sol) {
 }
 
 async function aprobarPermiso(solicitudId) {
+  const { data: sol } = await sb.from('solicitudes').select('*').eq('id', solicitudId).single();
+  if (!sol) return;
+
+  // Marcar como aprobada
   await sb.from('solicitudes').update({
     estado: 'aprobada',
     resuelta_por: currentUser.id,
     resuelta_en: new Date().toISOString()
   }).eq('id', solicitudId);
-  alert('✓ Permiso aprobado. Recuerda marcarlo en el cuadrante.');
+
+  // Aplicar en el cuadrante — todos los días entre fecha_desde y fecha_hasta
+  const fechaIni = new Date(sol.fecha_desde);
+  const fechaFin = new Date(sol.fecha_hasta || sol.fecha_desde_b || sol.fecha_desde);
+  const tipo = sol.tipo_cambio; // AP, VAC, P, DH, etc.
+
+  let fecha = new Date(fechaIni);
+  let errores = 0;
+  while (fecha <= fechaFin) {
+    const fechaStr = fecha.toISOString().split('T')[0];
+    const { error } = await sb.from('cuadrante').update({
+      codigo_turno: null,
+      incidencia: tipo,
+      turno_original: null,
+      modificado_por: currentUser.id,
+      modificado_en: new Date().toISOString()
+    }).eq('trabajadora_id', sol.solicitante_id).eq('fecha', fechaStr).neq('es_doblaje', true);
+    if (error) errores++;
+    fecha.setDate(fecha.getDate() + 1);
+  }
+
+  if (errores > 0) {
+    alert('✓ Permiso aprobado, pero algunos días no se pudieron marcar automáticamente.');
+  } else {
+    alert('✓ Permiso aprobado y marcado en el cuadrante.');
+  }
   renderSolicitudes();
 }
 
@@ -1861,13 +1890,22 @@ async function enviarPermiso() {
 
   if (!fechaIni) { alert('Indica al menos la fecha de inicio.'); return; }
 
+  // Determinar coordinadora destinataria según categoría
+  const esEnfermera = currentUser.categoria === 'enfermera';
+  const { data: coord } = await sb.from('trabajadoras')
+    .select('id')
+    .eq('rol', esEnfermera ? 'coordinadora_enfermera' : 'coordinadora')
+    .limit(1);
+  const coordId = coord?.[0]?.id || null;
+
   const { error } = await sb.from('solicitudes').insert({
     solicitante_id: currentUser.id,
-    contraparte_id: null,
+    contraparte_id: coordId,
     tipo: 'permiso',
     tipo_cambio: tipo,
     fecha_desde: fechaIni,
     fecha_desde_b: fechaFin,
+    fecha_hasta: fechaFin,
     motivo: motivo || null,
     estado: 'pendiente_aprobacion'
   });
