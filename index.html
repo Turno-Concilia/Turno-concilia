@@ -1670,6 +1670,7 @@ async function actualizarDiaYoLeHago(i, campo, valor) {
         .limit(1);
       const miTurno = miDato?.[0]?.codigo_turno || miDato?.[0]?.incidencia || '';
       diasYoLeHago[i].miTurnoEseDia = esTurnoReal(miTurno) ? miTurno : null;
+      console.log('miTurnoEseDia para', valor, ':', diasYoLeHago[i].miTurnoEseDia);
     }
   }
   if (campo === 'turno') {
