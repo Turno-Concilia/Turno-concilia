@@ -1695,12 +1695,16 @@ async function detectarDoblaje() {
   const avisoDiv = document.getElementById('aviso-doblaje');
   if (!avisoDiv) return;
 
-  // Buscar días donde yo tengo turno real y además le hago el turno a ella
+  // Doblaje real: yo hago un turno de ella en un día que NO aparece en diasEllaMeHace
+  // Si el mismo día aparece en ambos lados = intercambio normal, no doblaje
   const esTurnoReal = (t) => t && !['L','F','AP','VAC','P','DH','IT','SA',''].includes(t);
   let doblajesDetectados = [];
+  const fechasElla = diasEllaMeHace.filter(d => d.fecha).map(d => d.fecha);
 
   for (const dia of diasYoLeHago) {
     if (!dia.fecha) continue;
+    // Si ese día también aparece en diasEllaMeHace = intercambio normal, ignorar
+    if (fechasElla.includes(dia.fecha)) continue;
     // Consultar mi turno ese día
     const { data } = await sb.from('cuadrante')
       .select('codigo_turno, incidencia')
@@ -1709,7 +1713,7 @@ async function detectarDoblaje() {
       .neq('es_doblaje', true)
       .limit(1);
     const miTurno = data?.[0]?.codigo_turno || data?.[0]?.incidencia || '';
-    if (esTurnoReal(miTurno) && esTurnoReal(dia.turno) && miTurno !== dia.turno) {
+    if (esTurnoReal(miTurno) && esTurnoReal(dia.turno)) {
       doblajesDetectados.push({ fecha: dia.fecha, miTurno, suTurno: dia.turno });
     }
   }
