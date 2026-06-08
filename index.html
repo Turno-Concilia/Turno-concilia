@@ -1549,13 +1549,24 @@ function renderDiasYoLeHago() {
       ? '<button data-idx="' + i + '" data-tipo="yo" onclick="eliminarDiaYoLeHago(parseInt(this.dataset.idx))" style="background:none;border:none;color:#C0392B;font-size:18px;cursor:pointer;padding:0 4px;margin-bottom:2px">×</button>'
       : '<div></div>';
     const horasLabel = d.horas ? '<div style="font-size:10px;color:var(--blue);margin-bottom:6px;margin-top:-4px">⏱ ' + d.horas + 'h</div>' : '';
+    // Mostrar selector doblaje si yo tengo turno real ese día
+    const doblajeSelector = d.miTurnoEseDia ? (
+      '<div style="background:#FFF0E0;border-radius:4px;padding:6px 8px;margin-bottom:6px;font-size:11px">'
+      + '<span style="color:#8B2500;font-weight:600">⚡ Tienes ' + d.miTurnoEseDia + ' ese día</span><br>'
+      + '<label style="margin-top:4px;display:flex;align-items:center;gap:6px;cursor:pointer">'
+      + '<input type="radio" name="tipo-dia-yo-' + i + '" value="intercambio" ' + (!d.esDoblaje ? 'checked' : '') + ' onchange="diasYoLeHago[' + i + '].esDoblaje=false;renderDiasYoLeHago()"> Intercambio (ella hace tu ' + d.miTurnoEseDia + ')'
+      + '</label>'
+      + '<label style="margin-top:2px;display:flex;align-items:center;gap:6px;cursor:pointer">'
+      + '<input type="radio" name="tipo-dia-yo-' + i + '" value="doblaje" ' + (d.esDoblaje ? 'checked' : '') + ' onchange="diasYoLeHago[' + i + '].esDoblaje=true;renderDiasYoLeHago()"> Doblaje (tú haces los dos turnos, ella libra)'
+      + '</label></div>'
+    ) : '';
     html += '<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:end;margin-bottom:8px">'
       + '<div class="form-group" style="margin-bottom:0"><label class="form-label">' + label + '</label>'
       + '<input type="date" class="form-input" value="' + d.fecha + '" data-idx="' + i + '" data-tipo="yo" onchange="onChangeDiaFecha(this)" oninput="onChangeDiaFecha(this)"></div>'
       + '<div class="form-group" style="margin-bottom:0"><label class="form-label">Su turno</label>'
       + '<select class="form-input" data-idx="' + i + '" data-tipo="yo" onchange="onChangeDiaTurno(this)">'
       + '<option value="">—</option>' + opciones + '</select></div>'
-      + btnEliminar + '</div>' + horasLabel;
+      + btnEliminar + '</div>' + doblajeSelector + horasLabel;
   });
   container.innerHTML = html;
   // Attach events via addEventListener for better compatibility
@@ -1648,10 +1659,24 @@ async function actualizarDiaYoLeHago(i, campo, valor) {
       diasYoLeHago[i].horas = getHorasCodigo(turno);
       const turnos = await getTurnosDelDia(contraparteId, valor);
       diasYoLeHago[i].opciones = turnos;
+
+      // Comprobar si yo tengo turno real ese día (posible doblaje)
+      const esTurnoReal = (t) => t && !['L','F','AP','VAC','P','DH','IT','SA',''].includes(t);
+      const { data: miDato } = await sb.from('cuadrante')
+        .select('codigo_turno, incidencia')
+        .eq('trabajadora_id', currentUser.id)
+        .eq('fecha', valor)
+        .neq('es_doblaje', true)
+        .limit(1);
+      const miTurno = miDato?.[0]?.codigo_turno || miDato?.[0]?.incidencia || '';
+      diasYoLeHago[i].miTurnoEseDia = esTurnoReal(miTurno) ? miTurno : null;
     }
   }
   if (campo === 'turno') {
     diasYoLeHago[i].horas = getHorasCodigo(valor);
+  }
+  if (campo === 'esDoblaje') {
+    diasYoLeHago[i].esDoblaje = valor;
   }
   renderDiasYoLeHago();
   detectarDoblaje();
@@ -2185,6 +2210,11 @@ async function enviarSolicitud() {
     const diasElla = diasEllaMeHace.filter(d => d.fecha && d.turno);
     if (diasYo.length === 0) { alert('Indica el día de tu compañera.'); return; }
     if (diasElla.length === 0) { alert('Selecciona tu fecha.'); return; }
+
+    // Añadir marcadores de doblaje si los hay
+    const fechasDoblaje = diasYo.filter(d => d.esDoblaje && d.fecha).map(d => d.fecha);
+    const doblajeStr = fechasDoblaje.map(f => '|DOBLAJE:' + f + '|').join('');
+    if (doblajeStr) solicitud.motivo = (solicitud.motivo || '') + doblajeStr;
 
     if (diasYo.length === 1 && diasElla.length === 1) {
       // Cambio simple — sin MULTI
