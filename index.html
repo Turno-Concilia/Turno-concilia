@@ -1646,6 +1646,20 @@ function eliminarDiaEllaMeHace(i) {
 async function actualizarDiaYoLeHago(i, campo, valor) {
   diasYoLeHago[i][campo] = valor;
   if (campo === 'fecha' && valor) {
+    const esTurnoReal = (t) => t && !['L','F','AP','VAC','P','DH','IT','SA',''].includes(t);
+    
+    // Consultar mi turno ese día (para detectar doblaje)
+    const { data: miDato } = await sb.from('cuadrante')
+      .select('codigo_turno, incidencia')
+      .eq('trabajadora_id', currentUser.id)
+      .eq('fecha', valor)
+      .neq('es_doblaje', true)
+      .limit(1);
+    const miTurno = miDato?.[0]?.codigo_turno || miDato?.[0]?.incidencia || '';
+    diasYoLeHago[i].miTurnoEseDia = esTurnoReal(miTurno) ? miTurno : null;
+    console.log('miTurnoEseDia para', valor, ':', diasYoLeHago[i].miTurnoEseDia);
+
+    // Consultar turno de la contraparte ese día
     const contraparteId = document.getElementById('sol-contraparte').value;
     if (contraparteId) {
       const { data } = await sb.from('cuadrante')
@@ -1659,18 +1673,6 @@ async function actualizarDiaYoLeHago(i, campo, valor) {
       diasYoLeHago[i].horas = getHorasCodigo(turno);
       const turnos = await getTurnosDelDia(contraparteId, valor);
       diasYoLeHago[i].opciones = turnos;
-
-      // Comprobar si yo tengo turno real ese día (posible doblaje)
-      const esTurnoReal = (t) => t && !['L','F','AP','VAC','P','DH','IT','SA',''].includes(t);
-      const { data: miDato } = await sb.from('cuadrante')
-        .select('codigo_turno, incidencia')
-        .eq('trabajadora_id', currentUser.id)
-        .eq('fecha', valor)
-        .neq('es_doblaje', true)
-        .limit(1);
-      const miTurno = miDato?.[0]?.codigo_turno || miDato?.[0]?.incidencia || '';
-      diasYoLeHago[i].miTurnoEseDia = esTurnoReal(miTurno) ? miTurno : null;
-      console.log('miTurnoEseDia para', valor, ':', diasYoLeHago[i].miTurnoEseDia);
     }
   }
   if (campo === 'turno') {
