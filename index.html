@@ -163,6 +163,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .cal-header{text-align:center;font-size:11px;font-weight:600;color:var(--text-muted);padding:4px 0}
 .cal-dia{border-radius:var(--radius-sm);padding:4px 2px;min-height:64px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:0.5px solid var(--border);background:var(--white)}
 .cal-dia.otro-mes{background:var(--bg);border-color:transparent}
+.cal-dia.con-obs{border-color:#E65100}
 .cal-dia.hoy{border-color:var(--teal);border-width:2px}
 .cal-dia.finde{background:#FFF0F0}
 .cal-dia.finde .cal-num{color:#C0392B!important;font-weight:600}
@@ -2766,6 +2767,72 @@ function getTurnoColor(cod) {
   return mapa[cod] || 't-L';
 }
 
+async function abrirObservacion(fecha, dia) {
+  // Obtener observación actual
+  const { data } = await sb.from('cuadrante')
+    .select('id, observacion')
+    .eq('trabajadora_id', currentUser.id)
+    .eq('fecha', fecha)
+    .neq('es_doblaje', true)
+    .limit(1);
+  
+  const celda = data?.[0];
+  const obsActual = celda?.observacion || '';
+
+  // Crear modal
+  let modal = document.getElementById('modal-observacion');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-observacion';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px';
+    document.body.appendChild(modal);
+  }
+
+  const fechaFmt = new Date(fecha + 'T00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  modal.innerHTML = `
+    <div style="background:var(--white);border-radius:var(--radius);padding:20px;max-width:400px;width:100%">
+      <div style="font-size:15px;font-weight:600;margin-bottom:4px">Observación</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">${fechaFmt}</div>
+      <textarea id="obs-texto" maxlength="200" rows="3" 
+        style="width:100%;border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px;font-size:13px;font-family:inherit;resize:none"
+        placeholder="Ej: hoy se lo hago a Esther, pesar a residentes...">${obsActual}</textarea>
+      <div style="font-size:10px;color:var(--text-muted);text-align:right;margin-top:2px">Máx. 200 caracteres · Solo tú la ves</div>
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button onclick="cerrarObservacion()" style="flex:1;padding:8px;border:1px solid var(--border);background:var(--white);border-radius:var(--radius-sm);cursor:pointer">Cancelar</button>
+        <button onclick="guardarObservacion('${fecha}')" style="flex:1;padding:8px;border:none;background:var(--teal-dark);color:white;border-radius:var(--radius-sm);cursor:pointer;font-weight:600">Guardar</button>
+      </div>
+    </div>`;
+  modal.style.display = 'flex';
+  setTimeout(() => document.getElementById('obs-texto')?.focus(), 100);
+}
+
+function cerrarObservacion() {
+  const modal = document.getElementById('modal-observacion');
+  if (modal) modal.style.display = 'none';
+}
+
+async function guardarObservacion(fecha) {
+  const texto = document.getElementById('obs-texto').value.trim();
+  
+  // Buscar la celda
+  const { data } = await sb.from('cuadrante')
+    .select('id')
+    .eq('trabajadora_id', currentUser.id)
+    .eq('fecha', fecha)
+    .neq('es_doblaje', true)
+    .limit(1);
+  
+  if (data?.[0]) {
+    await sb.from('cuadrante')
+      .update({ observacion: texto || null })
+      .eq('id', data[0].id);
+  }
+  
+  cerrarObservacion();
+  renderMiCuadrante();
+}
+
 async function renderMiCuadrante() {
   if (!currentUser) return;
   document.getElementById('mes-titulo-mio').textContent = MESES_ES[mesMio] + ' ' + anioMio;
@@ -2777,7 +2844,7 @@ async function renderMiCuadrante() {
   const fechaFin = `${anioMio}-${String(mesMio+1).padStart(2,'0')}-${String(totalDias).padStart(2,'0')}`;
 
   const { data } = await sb.from('cuadrante')
-    .select('fecha, codigo_turno, incidencia, turno_original')
+    .select('fecha, codigo_turno, incidencia, turno_original, observacion')
     .eq('trabajadora_id', currentUser.id)
     .gte('fecha', fechaIni)
     .lte('fecha', fechaFin);
@@ -2786,9 +2853,12 @@ async function renderMiCuadrante() {
   const mapaD = {};
   (data||[]).forEach(r => {
     const dia = parseInt(r.fecha.split('-')[2]);
-    mapaD[dia] = r.incidencia === 'SA' 
+    const base = r.incidencia === 'SA' 
       ? { cod: 'SA', turno: r.turno_original || r.codigo_turno || '?' }
       : { cod: r.incidencia || r.codigo_turno || '', turno: r.incidencia || r.codigo_turno || '' };
+    base.observacion = r.observacion || '';
+    base.fecha = r.fecha;
+    mapaD[dia] = base;
   });
 
   // Día de la semana del 1 del mes (0=Dom, ajustamos a Lun=0)
@@ -2819,9 +2889,13 @@ async function renderMiCuadrante() {
     const cls = getTurnoColor(cod);
     const horario = HORARIOS[turnoLabel] || '';
 
-    html += `<div class="cal-dia${esFinde||esFest3?' finde':''}${esHoy?' hoy':''}">
+    const tieneObs = celda && celda.observacion;
+    const fechaCompleta = `${anioMio}-${String(mesMio+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    html += `<div class="cal-dia${esFinde||esFest3?' finde':''}${esHoy?' hoy':''}${tieneObs?' con-obs':''}" 
+      onclick="abrirObservacion('${fechaCompleta}', ${d})" style="cursor:pointer;position:relative">
       <div class="cal-num" style="${esHoy?'color:var(--teal-dark);font-weight:700':esFest3?'color:#C0392B;font-weight:700':''}">${d}${esFest3?' 🔴':''}</div>
       ${cod ? `<div class="cal-turno ${cls}">${turnoLabel}</div>` : ''}
+      ${tieneObs ? '<div style="position:absolute;top:2px;right:2px;width:6px;height:6px;background:#E65100;border-radius:50%"></div>' : ''}
     </div>`;
   }
 
