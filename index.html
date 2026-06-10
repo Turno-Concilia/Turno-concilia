@@ -730,10 +730,29 @@ function doLogout() {
   document.getElementById('app-shell').style.display = 'none';
 }
 
+let canalCuadrante = null;
+
+function suscribirCuadranteRealtime() {
+  if (canalCuadrante) return; // ya suscrito
+  canalCuadrante = sb.channel('cambios-cuadrante')
+    .on('postgres_changes', 
+      { event: '*', schema: 'public', table: 'cuadrante' },
+      (payload) => {
+        // Solo refrescar si estamos viendo el cuadrante
+        const cuadranteVisible = document.getElementById('page-cuadrante')?.style.display !== 'none';
+        if (cuadranteVisible && typeof renderCuadrante === 'function') {
+          renderCuadrante();
+        }
+      }
+    )
+    .subscribe();
+}
+
 async function iniciarApp() {
   document.getElementById('page-login').style.display = 'none';
   document.getElementById('app-shell').style.display = 'block';
   document.getElementById('topbar-user').textContent = currentUser.nick;
+  suscribirCuadranteRealtime();
   // Mostrar pestaña admin solo para superadmin
   const navAdmin = document.getElementById('nav-admin');
   if (navAdmin) {
