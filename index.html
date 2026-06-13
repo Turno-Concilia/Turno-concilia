@@ -328,6 +328,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       </button>
     </div>
 
+    <!-- Botón editar periodo (solo coordinadoras/admin) -->
+    <div id="btn-periodo-wrap" style="display:none;margin-bottom:10px">
+      <button onclick="abrirEditarPeriodo()" style="width:100%;padding:8px;border:1px solid var(--teal-dark);background:var(--teal-light);color:var(--teal-dark);border-radius:var(--radius-sm);font-size:12px;font-weight:600;cursor:pointer">
+        📅 Editar periodo (vacaciones, baja...)
+      </button>
+    </div>
+
     <div class="leyenda">
       <div class="leyenda-item"><div class="leyenda-dot" style="background:#E1F5EE;border:1px solid #1D9E75"></div>Mañana res.</div>
       <div class="leyenda-item"><div class="leyenda-dot" style="background:#EAF3DE;border:1px solid #3B6D11"></div>Mañana CD</div>
@@ -765,6 +772,12 @@ async function iniciarApp() {
     const esGestor = currentUser && ['coordinadora','coordinadora_enfermera','superadmin'].includes(currentUser.rol);
     navSm.style.display = esGestor ? 'flex' : 'none';
   }
+  // Mostrar botón editar periodo solo para gestores
+  const btnPeriodoWrap = document.getElementById('btn-periodo-wrap');
+  if (btnPeriodoWrap) {
+    const esGestor2 = currentUser && ['coordinadora','coordinadora_enfermera','superadmin'].includes(currentUser.rol);
+    btnPeriodoWrap.style.display = esGestor2 ? 'block' : 'none';
+  }
   // Resetear siempre al mes actual
   mesActual = new Date().getMonth();
   anioActual = new Date().getFullYear();
@@ -833,6 +846,124 @@ function esFestivo(a, m, d) {
 function diasEnMes(m, a) { return new Date(a, m+1, 0).getDate(); }
 function diaSemana(a, m, d) { return new Date(a, m, d).getDay(); }
 function esFinde(a, m, d) { const ds = diaSemana(a,m,d); return ds===0||ds===6; }
+
+async function abrirEditarPeriodo() {
+  // Cargar trabajadoras de la categoría actual
+  const { data: trabs } = await sb.from('trabajadoras')
+    .select('id, nick, categoria')
+    .eq('activa', true)
+    .order('nick');
+  
+  const opcionesTrab = (trabs || [])
+    .map(t => `<option value="${t.id}">${t.nick}</option>`).join('');
+
+  const codigos = ['VAC','ILT','AP','P','DH','M1','M2','M3','T1','T2','T3','N','L'];
+  const opcionesCod = codigos.map(c => `<option value="${c}">${c}</option>`).join('');
+
+  let modal = document.getElementById('modal-periodo');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-periodo';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px';
+    document.body.appendChild(modal);
+  }
+
+  modal.innerHTML = `
+    <div style="background:var(--white);border-radius:var(--radius);padding:20px;max-width:420px;width:100%;max-height:90vh;overflow-y:auto">
+      <div style="font-size:16px;font-weight:600;margin-bottom:14px">Editar periodo</div>
+      
+      <div class="form-group">
+        <label class="form-label">Trabajadora</label>
+        <select class="form-input" id="per-trab"><option value="">Selecciona...</option>${opcionesTrab}</select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Acción</label>
+        <select class="form-input" id="per-accion" onchange="onCambioAccionPeriodo()">
+          <option value="aplicar">Aplicar código (vacaciones, baja...)</option>
+          <option value="restaurar">Restaurar cuadrante original (alta)</option>
+        </select>
+      </div>
+
+      <div class="form-group" id="per-cod-wrap">
+        <label class="form-label">Código a aplicar</label>
+        <select class="form-input" id="per-cod">${opcionesCod}</select>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Desde</label>
+          <input type="date" class="form-input" id="per-desde">
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Hasta</label>
+          <input type="date" class="form-input" id="per-hasta">
+        </div>
+      </div>
+
+      <div id="per-aviso" style="display:none;background:var(--amber-light);border-radius:var(--radius-sm);padding:8px 10px;font-size:11px;color:var(--amber);margin-top:10px"></div>
+
+      <div style="display:flex;gap:8px;margin-top:16px">
+        <button onclick="cerrarEditarPeriodo()" style="flex:1;padding:10px;border:1px solid var(--border);background:var(--white);border-radius:var(--radius-sm);cursor:pointer">Cancelar</button>
+        <button onclick="aplicarPeriodo()" id="per-btn-aplicar" style="flex:1;padding:10px;border:none;background:var(--teal-dark);color:white;border-radius:var(--radius-sm);cursor:pointer;font-weight:600">Aplicar</button>
+      </div>
+    </div>`;
+  modal.style.display = 'flex';
+}
+
+function onCambioAccionPeriodo() {
+  const accion = document.getElementById('per-accion').value;
+  const codWrap = document.getElementById('per-cod-wrap');
+  const aviso = document.getElementById('per-aviso');
+  if (accion === 'restaurar') {
+    codWrap.style.display = 'none';
+    aviso.style.display = 'block';
+    aviso.textContent = 'Restaurará el turno que cada día tenía antes de aplicar el periodo (vacaciones/baja).';
+  } else {
+    codWrap.style.display = 'block';
+    aviso.style.display = 'none';
+  }
+}
+
+function cerrarEditarPeriodo() {
+  const modal = document.getElementById('modal-periodo');
+  if (modal) modal.style.display = 'none';
+}
+
+async function aplicarPeriodo() {
+  const trabId = document.getElementById('per-trab').value;
+  const accion = document.getElementById('per-accion').value;
+  const codigo = document.getElementById('per-cod').value;
+  const desde = document.getElementById('per-desde').value;
+  const hasta = document.getElementById('per-hasta').value;
+
+  if (!trabId) { alert('Selecciona una trabajadora.'); return; }
+  if (!desde || !hasta) { alert('Indica las fechas desde y hasta.'); return; }
+  if (hasta < desde) { alert('La fecha "hasta" no puede ser anterior a "desde".'); return; }
+
+  const btn = document.getElementById('per-btn-aplicar');
+  btn.textContent = 'Aplicando...';
+  btn.disabled = true;
+
+  try {
+    const { data: sessionData } = await sb.auth.getSession();
+    const token = sessionData?.session?.access_token;
+    const resp = await fetch('https://apcidgsjefltilrzegof.supabase.co/functions/v1/editar-periodo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ trabajadoraId: trabId, accion, codigo, desde, hasta, usuarioId: currentUser.id })
+    });
+    const result = await resp.json();
+    if (!resp.ok || result.error) throw new Error(result.error || 'Error en el servidor');
+    alert(`✓ Periodo ${accion === 'restaurar' ? 'restaurado' : 'aplicado'} (${result.dias} días).`);
+    cerrarEditarPeriodo();
+    renderCuadrante();
+  } catch(err) {
+    alert('⚠️ Error: ' + err.message);
+    btn.textContent = 'Aplicar';
+    btn.disabled = false;
+  }
+}
 
 async function renderCuadrante() {
   document.getElementById('mes-titulo').textContent = MESES[mesActual] + ' ' + anioActual;
