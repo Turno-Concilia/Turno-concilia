@@ -1614,13 +1614,24 @@ function renderDiasEllaMeHace() {
       ? '<button data-idx="' + i + '" data-tipo="ella" onclick="eliminarDiaEllaMeHace(parseInt(this.dataset.idx))" style="background:none;border:none;color:#C0392B;font-size:18px;cursor:pointer;padding:0 4px;margin-bottom:2px">×</button>'
       : '<div></div>';
     const horasLabel = d.horas ? '<div style="font-size:10px;color:var(--teal-dark);margin-bottom:6px;margin-top:-4px">⏱ ' + d.horas + 'h</div>' : '';
+    // Selector doblaje si la contraparte ya tiene turno real ese día
+    const doblajeSelectorElla = d.suTurnoEseDia ? (
+      '<div style="background:#FFF0E0;border-radius:4px;padding:6px 8px;margin-bottom:6px;font-size:11px">'
+      + '<span style="color:#8B2500;font-weight:600">⚡ Tu compañera tiene ' + d.suTurnoEseDia + ' ese día</span><br>'
+      + '<label style="margin-top:4px;display:flex;align-items:center;gap:6px;cursor:pointer">'
+      + '<input type="radio" name="tipo-dia-ella-' + i + '" value="intercambio" ' + (!d.esDoblaje ? 'checked' : '') + ' onchange="diasEllaMeHace[' + i + '].esDoblaje=false;renderDiasEllaMeHace()"> Intercambio (tú haces su ' + d.suTurnoEseDia + ')'
+      + '</label>'
+      + '<label style="margin-top:2px;display:flex;align-items:center;gap:6px;cursor:pointer">'
+      + '<input type="radio" name="tipo-dia-ella-' + i + '" value="doblaje" ' + (d.esDoblaje ? 'checked' : '') + ' onchange="diasEllaMeHace[' + i + '].esDoblaje=true;renderDiasEllaMeHace()"> Doblaje (ella hace los dos turnos, tú libras)'
+      + '</label></div>'
+    ) : '';
     html += '<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:end;margin-bottom:8px">'
       + '<div class="form-group" style="margin-bottom:0"><label class="form-label">' + label + '</label>'
       + '<input type="date" class="form-input" value="' + d.fecha + '" data-idx="' + i + '" data-tipo="ella" onchange="onChangeDiaFecha(this)" oninput="onChangeDiaFecha(this)"></div>'
       + '<div class="form-group" style="margin-bottom:0"><label class="form-label">Mi turno</label>'
       + '<select class="form-input" data-idx="' + i + '" data-tipo="ella" onchange="onChangeDiaTurno(this)">'
       + '<option value="">—</option>' + opciones + '</select></div>'
-      + btnEliminar + '</div>' + horasLabel;
+      + btnEliminar + '</div>' + doblajeSelectorElla + horasLabel;
   });
   container.innerHTML = html;
   detectarDoblaje();
@@ -1708,6 +1719,9 @@ async function actualizarDiaYoLeHago(i, campo, valor) {
 async function actualizarDiaEllaMeHace(i, campo, valor) {
   diasEllaMeHace[i][campo] = valor;
   if (campo === 'fecha' && valor) {
+    const esTurnoReal = (t) => t && !['L','F','AP','VAC','P','DH','IT','SA',''].includes(t);
+
+    // Mi turno ese día (el que ella me hace)
     const { data } = await sb.from('cuadrante')
       .select('codigo_turno, incidencia')
       .eq('trabajadora_id', currentUser.id)
@@ -1719,6 +1733,19 @@ async function actualizarDiaEllaMeHace(i, campo, valor) {
     diasEllaMeHace[i].horas = getHorasCodigo(turno);
     const turnos = await getTurnosDelDia(currentUser.id, valor);
     diasEllaMeHace[i].opciones = turnos;
+
+    // ¿La contraparte ya tiene turno real ese día? (posible doblaje de ella)
+    const contraparteId = document.getElementById('sol-contraparte').value;
+    if (contraparteId) {
+      const { data: suDato } = await sb.from('cuadrante')
+        .select('codigo_turno, incidencia')
+        .eq('trabajadora_id', contraparteId)
+        .eq('fecha', valor)
+        .neq('es_doblaje', true)
+        .limit(1);
+      const suTurno = suDato?.[0]?.codigo_turno || suDato?.[0]?.incidencia || '';
+      diasEllaMeHace[i].suTurnoEseDia = esTurnoReal(suTurno) ? suTurno : null;
+    }
   }
   if (campo === 'turno') {
     diasEllaMeHace[i].horas = getHorasCodigo(valor);
@@ -2235,9 +2262,14 @@ async function enviarSolicitud() {
     if (diasElla.length === 0) { alert('Selecciona tu fecha.'); return; }
 
     // Añadir marcadores de doblaje si los hay
+    // Doblaje del solicitante (en su lado "Yo le hago")
     const fechasDoblaje = diasYo.filter(d => d.esDoblaje && d.fecha).map(d => d.fecha);
     const doblajeStr = fechasDoblaje.map(f => '|DOBLAJE:' + f + '|').join('');
     if (doblajeStr) solicitud.motivo = (solicitud.motivo || '') + doblajeStr;
+    // Doblaje de la contraparte (en su lado "Ella me devuelve")
+    const fechasDoblajeElla = diasElla.filter(d => d.esDoblaje && d.fecha).map(d => d.fecha);
+    const doblajeEllaStr = fechasDoblajeElla.map(f => '|DOBLAJE_ELLA:' + f + '|').join('');
+    if (doblajeEllaStr) solicitud.motivo = (solicitud.motivo || '') + doblajeEllaStr;
 
     if (diasYo.length === 1 && diasElla.length === 1) {
       // Cambio simple — sin MULTI
