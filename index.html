@@ -857,7 +857,7 @@ async function abrirEditarPeriodo() {
   const opcionesTrab = (trabs || [])
     .map(t => `<option value="${t.id}">${t.nick}</option>`).join('');
 
-  const codigos = ['VAC','ILT','AP','P','DH','M1','M2','M3','T1','T2','T3','N','L'];
+  const codigos = ['VAC','IT','AP','P','DH','M1','M2','M3','T1','T2','T3','N','L'];
   const opcionesCod = codigos.map(c => `<option value="${c}">${c}</option>`).join('');
 
   let modal = document.getElementById('modal-periodo');
