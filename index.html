@@ -1425,7 +1425,7 @@ async function aceptarCambio(solicitudId) {
   if (!sol) return;
 
   try {
-    if (sol.tipo_cambio === 'completo') {
+    if (sol.tipo_cambio === 'completo' || sol.tipo_cambio === 'parcial') {
       // Usar Edge Function con service role para garantizar permisos
       const { data: sessionData } = await sb.auth.getSession();
       const token = sessionData?.session?.access_token;
@@ -1453,8 +1453,6 @@ async function aceptarCambio(solicitudId) {
 
       if (sol.tipo_cambio === 'devolucion') {
         await aplicarCambioDevolucion(sol);
-      } else if (sol.tipo_cambio === 'parcial') {
-        await aplicarCambioParcial(sol);
       } else if (sol.tipo_cambio === 'doblaje') {
         await aplicarCambioDoblaje(sol);
       }
