@@ -595,6 +595,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       </div>
       <div id="horas-container"></div>
     </div>
+
+    <!-- BOLSA DE DEUDAS (horas entre compañeras) -->
+    <div class="card" style="margin-top:12px">
+      <div class="card-title"><span>Horas con compañeras</span></div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">
+        Saldo de horas por coberturas parciales. En verde, horas que te deben; en rojo, las que debes.
+      </div>
+      <div id="deudas-container"><div class="loading"><div class="spinner"></div></div></div>
+    </div>
   </div>
 
   <!-- ADMIN PAGE -->
@@ -2836,7 +2845,7 @@ function showPage(nombre) {
   document.getElementById('page-'+nombre).classList.add('active');
   if (document.getElementById('nav-'+nombre)) document.getElementById('nav-'+nombre).classList.add('active');
   if (nombre === 'admin') cargarAdminPanel();
-  if (nombre === 'micuadrante') { renderMiCuadrante(); calcularHorasPeriodo(); }
+  if (nombre === 'micuadrante') { renderMiCuadrante(); calcularHorasPeriodo(); renderDeudas(); }
 }
 
 // ============================================================
@@ -3234,6 +3243,67 @@ async function guardarObservacion(fecha) {
   
   cerrarObservacion();
   renderMiCuadrante();
+}
+
+async function renderDeudas() {
+  const container = document.getElementById('deudas-container');
+  if (!container || !currentUser) return;
+
+  // Traer todas las deudas donde participo (como acreedora o deudora)
+  const { data: deudas } = await sb.from('bolsa_deudas')
+    .select('acreedora_id, deudora_id, horas, fecha_origen, estado')
+    .or(`acreedora_id.eq.${currentUser.id},deudora_id.eq.${currentUser.id}`)
+    .order('fecha_origen', { ascending: false });
+
+  if (!deudas || deudas.length === 0) {
+    container.innerHTML = '<div style="font-size:12px;color:var(--text-muted);padding:8px 0">No tienes horas pendientes con ninguna compañera.</div>';
+    return;
+  }
+
+  // Calcular saldo neto por compañera
+  const saldoPorComp = {};   // id compañera -> horas netas (+ me deben, - debo)
+  const movimientos = [];
+  deudas.forEach(d => {
+    const soyAcreedora = d.acreedora_id === currentUser.id;
+    const compId = soyAcreedora ? d.deudora_id : d.acreedora_id;
+    const signo = soyAcreedora ? 1 : -1;   // si soy acreedora, me deben (+)
+    const h = parseFloat(d.horas) * signo;
+    saldoPorComp[compId] = (saldoPorComp[compId] || 0) + h;
+    movimientos.push({ compId, horas: parseFloat(d.horas), signo, fecha: d.fecha_origen });
+  });
+
+  // Nombres de las compañeras implicadas
+  const ids = Object.keys(saldoPorComp);
+  const { data: trabs } = await sb.from('trabajadoras').select('id, nick').in('id', ids);
+  const nombre = (id) => (trabs || []).find(t => t.id === id)?.nick || 'Compañera';
+
+  let html = '';
+  // Resumen de saldos
+  ids.forEach(id => {
+    const saldo = Math.round(saldoPorComp[id] * 100) / 100;
+    let color, texto;
+    if (saldo > 0) { color = '#1B5E20'; texto = `te debe ${saldo}h`; }
+    else if (saldo < 0) { color = '#C0392B'; texto = `le debes ${Math.abs(saldo)}h`; }
+    else { color = 'var(--text-muted)'; texto = 'saldo a cero'; }
+    html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--gray-light);border-radius:var(--radius-sm);margin-bottom:6px">
+      <span style="font-weight:600;font-size:13px">${nombre(id)}</span>
+      <span style="color:${color};font-weight:600;font-size:13px">${texto}</span>
+    </div>`;
+  });
+
+  // Historial de movimientos
+  html += '<div style="font-size:11px;font-weight:600;color:var(--text-muted);margin:10px 0 4px">Historial</div>';
+  movimientos.forEach(m => {
+    const signoTxt = m.signo > 0 ? `+${m.horas}h` : `−${m.horas}h`;
+    const col = m.signo > 0 ? '#1B5E20' : '#C0392B';
+    const f = new Date(m.fecha + 'T00:00').toLocaleDateString('es-ES', { day:'numeric', month:'short' });
+    html += `<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 10px">
+      <span>${f} · ${nombre(m.compId)}</span>
+      <span style="color:${col}">${signoTxt}</span>
+    </div>`;
+  });
+
+  container.innerHTML = html;
 }
 
 async function renderMiCuadrante() {
