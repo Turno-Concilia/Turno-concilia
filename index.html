@@ -2327,49 +2327,47 @@ function selTipoCambio(tipo, btn) {
   document.querySelectorAll('.tipo-cambio-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
 
-  // Modo parcial: mostrar bloque propio y ocultar los contenedores de cambio normal
-  const esParcialModo = tipo === 'parcial';
+  const esParcial = tipo === 'parcial';
+  const esDoblaje = tipo === 'doblaje';
+
+  // Referencias a los contenedores (por ID real)
   const bloqueParcial = document.getElementById('bloque-parcial');
-  if (bloqueParcial) bloqueParcial.style.display = esParcialModo ? 'block' : 'none';
-  // Ocultar contenedores de cambio normal cuando es parcial
-  const contYo = document.querySelector('#dias-yo-le-hago')?.closest('div[style*="blue-light"]');
-  if (contYo) contYo.style.display = esParcialModo ? 'none' : 'block';
-  if (esParcialModo) {
-    const cb = document.getElementById('campos-b');
-    if (cb) cb.style.display = 'none';
+  const bloqueYo = document.getElementById('bloque-yo-le-hago');
+  const camposB = document.getElementById('campos-b');
+  const avisoDoblaje = document.getElementById('aviso-doblaje');
+  const balanceHoras = document.getElementById('balance-horas');
+  const aviso = document.getElementById('sol-aviso-aprobacion');
+
+  // ---- MODO PARCIAL: solo el bloque parcial, nada del cambio normal ----
+  if (esParcial) {
+    if (bloqueParcial) bloqueParcial.style.display = 'block';
+    if (bloqueYo) bloqueYo.style.display = 'none';
+    if (camposB) camposB.style.display = 'none';
+    if (avisoDoblaje) avisoDoblaje.style.display = 'none';
+    if (balanceHoras) balanceHoras.style.display = 'none';
+    if (aviso) {
+      aviso.style.display = 'block';
+      aviso.textContent = '⚠️ Tu compañera deberá aceptar esta cobertura. Las horas quedarán registradas en la bolsa de deudas.';
+    }
     // limpiar estado parcial previo
     parcialData = { fecha:'', turnoContraparte:'', horario:null, cubroIni:'', cubroFin:'', valido:false };
     const inf = document.getElementById('par-info-turno'); if (inf) inf.style.display='none';
     const hw = document.getElementById('par-horas-wrap'); if (hw) hw.style.display='none';
     const pf = document.getElementById('par-fecha'); if (pf) pf.value='';
-    return; // en parcial no seguimos con la lógica de cambio normal
+    const pr = document.getElementById('par-resumen'); if (pr) pr.textContent='';
+    return;
   }
 
-  // Mostrar/ocultar campos según tipo
-  // Mostrar campos-b tanto en cambio completo como en parcial
-  document.getElementById('campos-b').style.display = (tipo === 'completo' || tipo === 'parcial') ? 'grid' : 'none';
-  // Cambiar el texto del bloque según el tipo
-  const labelB = document.querySelector('#campos-b > div:first-child');
-  const sublabelB = document.querySelector('#campos-b > div:nth-child(2)');
-  if (tipo === 'parcial') {
-    if (labelB) labelB.textContent = 'Ella me hace...';
-    if (sublabelB) sublabelB.textContent = 'El día mío que ella va a cubrir parcialmente';
-  } else {
-    if (labelB) labelB.textContent = 'Ella me devuelve...';
-    if (sublabelB) sublabelB.textContent = 'El día mío que ella va a cubrir';
-  }
-  const esParcial = tipo === 'parcial';
-  const esDoblaje = tipo === 'doblaje';
-  document.getElementById('campos-parcial').style.display = esParcial ? 'block' : 'none';
-  document.getElementById('campos-parcial-b').style.display = esParcial ? 'block' : 'none';
-  if (!esParcial) document.getElementById('horas-calculo').style.display = 'none';
-  // En doblaje: mismo día, solo mostrar bloque "Yo le hago" — campos-b se oculta
-  document.getElementById('campos-b').style.display = (tipo === 'completo' || esParcial) ? 'grid' : 'none';
+  // ---- MODOS NO PARCIALES: ocultar bloque parcial, mostrar cambio normal ----
+  if (bloqueParcial) bloqueParcial.style.display = 'none';
+  if (bloqueYo) bloqueYo.style.display = 'block';
+  // campos-b (Ella me devuelve) se muestra en completo; en doblaje se oculta (mismo día)
+  if (camposB) camposB.style.display = (tipo === 'completo') ? 'block' : 'none';
+
   // Aviso especial para doblaje
-  const aviso = document.getElementById('sol-aviso-aprobacion');
   if (esDoblaje) {
     aviso.style.display = 'block';
-    aviso.innerHTML = `⚡ Harás su turno además del tuyo ese mismo día. Tu celda pasará a T/N, M/T o M/N.<br><br>
+    aviso.innerHTML = `⚡ Harás su turno además del tuyo ese mismo día.<br><br>
       <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;margin-bottom:8px">
         <input type="checkbox" id="doblaje-con-devolucion" style="width:16px;height:16px" onchange="toggleDoblajeDevolucion()">
         ¿Ya tenéis pactado el día de devolución?
@@ -2392,16 +2390,9 @@ function selTipoCambio(tipo, btn) {
         Sin día pactado → quedará en bolsa de deudas pendiente.
       </div>`;
   } else {
-    aviso.style.display = (tipo === 'devolucion' || tipo === 'parcial') ? 'block' : 'none';
+    aviso.style.display = (tipo === 'devolucion') ? 'block' : 'none';
     aviso.textContent = '⚠️ Este tipo de cambio requiere aprobación de la coordinadora.';
   }
-  const labelFijo = document.getElementById('label-campos-b');
-  const sublabelFijo = document.getElementById('sublabel-campos-b');
-  if (labelFijo) labelFijo.textContent = tipo === 'parcial' ? 'Ella me hace...' : 'Ella me devuelve...';
-  if (sublabelFijo) sublabelFijo.textContent = tipo === 'parcial' ? 'El día mío que ella va a cubrir parcialmente' : 'El día mío que ella va a cubrir';
-
-  // Aviso de aprobación
-  // aviso ya declarado arriba
 }
 
 // Horarios por tipo de turno
