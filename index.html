@@ -229,7 +229,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
   <div class="form-group">
     <label class="form-label">Contraseña</label>
-    <input class="form-input" type="password" id="login-pass" placeholder="••••••••">
+    <div style="position:relative">
+      <input class="form-input" style="padding-right:36px" type="password" id="login-pass" placeholder="••••••••">
+      <button type="button" onclick="togglePass('login-pass', this)" aria-label="Mostrar contraseña"
+        style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:2px;color:var(--text-muted);display:flex;align-items:center">
+        <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+    </div>
   </div>
   <button class="btn-primary" onclick="doLogin()">Entrar</button>
   <button onclick="olvidarPassword()" style="background:none;border:none;color:var(--blue);font-size:12px;cursor:pointer;margin-top:8px;text-decoration:underline">¿Olvidaste tu contraseña?</button>
@@ -261,11 +267,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div style="font-size:13px;color:#888;margin-bottom:28px;text-align:center">Elige tu contraseña para acceder a Mi Turno Concilia</div>
   <div class="form-group">
     <label class="form-label">Nueva contraseña</label>
-    <input class="form-input" type="password" id="nueva-pass" placeholder="Mínimo 8 caracteres">
+    <div style="position:relative">
+      <input class="form-input" style="padding-right:36px" type="password" id="nueva-pass" placeholder="Mínimo 8 caracteres">
+      <button type="button" onclick="togglePass('nueva-pass', this)" aria-label="Mostrar contraseña"
+        style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:2px;color:var(--text-muted);display:flex;align-items:center">
+        <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+    </div>
   </div>
   <div class="form-group">
     <label class="form-label">Repite la contraseña</label>
-    <input class="form-input" type="password" id="nueva-pass2" placeholder="Repite la contraseña">
+    <div style="position:relative">
+      <input class="form-input" style="padding-right:36px" type="password" id="nueva-pass2" placeholder="Repite la contraseña">
+      <button type="button" onclick="togglePass('nueva-pass2', this)" aria-label="Mostrar contraseña"
+        style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:2px;color:var(--text-muted);display:flex;align-items:center">
+        <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+    </div>
   </div>
   <div id="cambio-pass-error" style="display:none;color:#A32D2D;font-size:12px;margin-bottom:8px;max-width:360px;text-align:center"></div>
   <button class="btn-primary" onclick="guardarNuevaPassword()">Guardar y entrar</button>
@@ -561,11 +579,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       </div>
       <div class="form-group">
         <label class="form-label">Nueva contraseña</label>
-        <input type="password" class="form-input" id="nueva-pass-perfil" placeholder="Mínimo 8 caracteres">
+        <div style="position:relative">
+      <input type="password" class="form-input" style="padding-right:36px" id="nueva-pass-perfil" placeholder="Mínimo 8 caracteres">
+      <button type="button" onclick="togglePass('nueva-pass-perfil', this)" aria-label="Mostrar contraseña"
+        style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:2px;color:var(--text-muted);display:flex;align-items:center">
+        <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+    </div>
       </div>
       <div class="form-group">
         <label class="form-label">Repite la contraseña</label>
-        <input type="password" class="form-input" id="nueva-pass-perfil2" placeholder="Repite la contraseña">
+        <div style="position:relative">
+      <input type="password" class="form-input" style="padding-right:36px" id="nueva-pass-perfil2" placeholder="Repite la contraseña">
+      <button type="button" onclick="togglePass('nueva-pass-perfil2', this)" aria-label="Mostrar contraseña"
+        style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:2px;color:var(--text-muted);display:flex;align-items:center">
+        <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+    </div>
       </div>
       <div id="cambio-pass-perfil-error" style="display:none;color:#A32D2D;font-size:12px;margin-bottom:8px"></div>
       <button class="btn-primary" onclick="cambiarPasswordPerfil()">Guardar nueva contraseña</button>
@@ -753,6 +783,18 @@ async function olvidarPassword() {
   } else {
     alert('✓ Te hemos enviado un email para restablecer tu contraseña. Revisa tu bandeja de entrada.');
   }
+}
+
+function togglePass(inputId, btn) {
+  const inp = document.getElementById(inputId);
+  if (!inp) return;
+  const visible = inp.type === 'text';
+  inp.type = visible ? 'password' : 'text';
+  btn.setAttribute('aria-label', visible ? 'Mostrar contraseña' : 'Ocultar contraseña');
+  // Ojo tachado cuando la contraseña es visible
+  btn.innerHTML = visible
+    ? '<svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'
+    : '<svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
 }
 
 async function doLogin() {
@@ -4014,4 +4056,4 @@ async function guardarNuevaPassword() {
 }
 </script>
 </body>
-</html>  
+</html>
