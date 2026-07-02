@@ -637,6 +637,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           <input type="date" class="form-input" id="gen-hasta">
         </div>
       </div>
+      <div class="form-group">
+        <label class="form-label">Categoría</label>
+        <select class="form-input" id="gen-categoria">
+          <option value="">Todas</option>
+          <option value="auxiliar">Solo auxiliares</option>
+          <option value="enfermera">Solo enfermería</option>
+        </select>
+      </div>
       <button class="btn-primary" id="gen-btn" onclick="generarCuadrante()">Generar cuadrante</button>
       <div id="gen-resultado" style="font-size:12px;margin-top:8px"></div>
     </div>
@@ -3344,12 +3352,13 @@ async function generarCuadrante() {
   res.textContent = '';
 
   try {
+    const categoria = document.getElementById('gen-categoria')?.value || null;
     const { data: sessionData } = await sb.auth.getSession();
     const token = sessionData?.session?.access_token;
     const resp = await fetch('https://apcidgsjefltilrzegof.supabase.co/functions/v1/generar-cuadrante', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-      body: JSON.stringify({ desde, hasta, usuarioId: currentUser.id })
+      body: JSON.stringify({ desde, hasta, usuarioId: currentUser.id, categoria })
     });
     const result = await resp.json();
     if (!resp.ok || result.error) throw new Error(result.error || 'Error en el servidor');
