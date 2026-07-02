@@ -618,6 +618,28 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       </div>
       <div id="admin-trabajadoras-lista"></div>
     </div>
+
+    <!-- GENERADOR DE CUADRANTE DESDE PATRÓN -->
+    <div class="card" style="margin-top:12px">
+      <div class="card-title">📅 Generar cuadrante desde patrón</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px">
+        Genera los turnos del periodo aplicando el patrón rotativo (32 sem. auxiliares, 7 sem. enfermería).
+        Solo rellena días vacíos: nunca modifica turnos, cambios, permisos o bajas ya existentes.
+        Los puestos compartidos se generan como SA reclamable.
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Desde</label>
+          <input type="date" class="form-input" id="gen-desde">
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Hasta</label>
+          <input type="date" class="form-input" id="gen-hasta">
+        </div>
+      </div>
+      <button class="btn-primary" id="gen-btn" onclick="generarCuadrante()">Generar cuadrante</button>
+      <div id="gen-resultado" style="font-size:12px;margin-top:8px"></div>
+    </div>
   </div>
 
   <nav class="bottom-nav">
@@ -3304,6 +3326,43 @@ async function renderDeudas() {
   });
 
   container.innerHTML = html;
+}
+
+async function generarCuadrante() {
+  const desde = document.getElementById('gen-desde').value;
+  const hasta = document.getElementById('gen-hasta').value;
+  const res = document.getElementById('gen-resultado');
+  const btn = document.getElementById('gen-btn');
+
+  if (!desde || !hasta) { alert('Indica las fechas desde y hasta.'); return; }
+  if (hasta < desde) { alert('La fecha "hasta" no puede ser anterior a "desde".'); return; }
+
+  if (!confirm(`¿Generar el cuadrante del ${desde} al ${hasta}?\n\nSolo se rellenarán los días vacíos; lo ya existente no se toca.`)) return;
+
+  btn.disabled = true;
+  btn.textContent = 'Generando...';
+  res.textContent = '';
+
+  try {
+    const { data: sessionData } = await sb.auth.getSession();
+    const token = sessionData?.session?.access_token;
+    const resp = await fetch('https://apcidgsjefltilrzegof.supabase.co/functions/v1/generar-cuadrante', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ desde, hasta, usuarioId: currentUser.id })
+    });
+    const result = await resp.json();
+    if (!resp.ok || result.error) throw new Error(result.error || 'Error en el servidor');
+    res.style.color = 'var(--teal-dark)';
+    res.textContent = `✓ Generadas ${result.insertadas} celdas para ${result.trabajadoras} trabajadoras (${result.saltadas} ya existían y no se tocaron).`;
+    renderCuadrante();
+  } catch(err) {
+    res.style.color = '#C0392B';
+    res.textContent = '⚠️ ' + err.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Generar cuadrante';
+  }
 }
 
 async function renderMiCuadrante() {
